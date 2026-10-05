@@ -881,17 +881,19 @@ function SessionRating({ w }) {
   </div>
 }
 
-// Asked once the summary is dismissed, only when the session strayed from its routine: added
-// exercises or a different number of sets. Skipped exercises never count (see plan-diff.js).
-function PlanUpdate({ w, diff, close }) {
+// Asked as soon as the workout is finished, before the summary, and only when the session
+// strayed from its routine: added exercises or a different number of sets. Skipped exercises
+// never count (see plan-diff.js). Either answer carries on to the summary.
+function PlanUpdate({ w, diff, close, onDone }) {
   const st = useStore(s => s.S)
   const r = st.routines.find(x => x.id === w.routineId)
-  if (!r) return null
   const nm = id => (EXIDX[id] || {}).n || id
+  const keep = () => { close(); onDone() }
   const adopt = () => {
     update(s => { const rr = s.routines.find(x => x.id === w.routineId); if (rr) rr.ex = adoptSession(rr.ex, w.entries) })
-    close(); toast(t('Plan updated'))
+    toast(t('Plan updated')); keep()
   }
+  if (!r) return null
   return <div style={{ padding: '4px 0' }}>
     <h3 style={{ marginBottom: 8, textAlign: 'center' }}>{t('Update your plan?')}</h3>
     <div className="muted" style={{ marginBottom: 12, lineHeight: 1.5, textAlign: 'center' }}>{t('This session didn’t match {0}. Want the plan to match what you did?', r.name)}</div>
@@ -902,11 +904,11 @@ function PlanUpdate({ w, diff, close }) {
     <div className="small dim" style={{ marginBottom: 16, textAlign: 'center' }}>{t('Skipped exercises stay in the plan.')}</div>
     <Button variant="primary" onClick={adopt}>{t('Update plan')}</Button>
     <div style={{ height: 8 }} />
-    <Button variant="ghost" className="dim" onClick={close}>{t('Keep plan as is')}</Button>
+    <Button variant="ghost" className="dim" onClick={keep}>{t('Keep plan as is')}</Button>
   </div>
 }
 
-function FinishSummary({ w, prs, e1prs = [], diff, close }) {
+function FinishSummary({ w, prs, e1prs = [], close }) {
   const st = useStore(s => s.S)
   const coachOn = !!useStore(s => s.config)?.coach?.enabled && !!st.coach?.consent?.agreedAt
   return <div style={{ textAlign: 'center', padding: '8px 0' }}>
@@ -926,10 +928,7 @@ function FinishSummary({ w, prs, e1prs = [], diff, close }) {
     <BodyMap load={loadOfWorkouts([w])} body={st.body} />
     {coachOn && <SessionRating w={w} />}
     <div style={{ height: 14 }} />
-    <Button variant="primary" onClick={() => {
-      close(); nav('/home')
-      if (diff && !followedPlan(diff)) ui().openSheet(c => <PlanUpdate w={w} diff={diff} close={c} />, { kind: 'center' })
-    }}>{t('Nice!')}</Button>
+    <Button variant="primary" onClick={() => { close(); nav('/home') }}>{t('Nice!')}</Button>
   </div>
 }
 export function finishWorkout() {
@@ -976,5 +975,8 @@ function doFinishWorkout() {
   })
   useUI.getState().stopRest()
   beep(snd(), 880, 0.15); beep(snd(), 1100, 0.15, 0.18); beep(snd(), 1320, 0.3, 0.36)
-  ui().openSheet(close => <FinishSummary w={w} prs={prs} e1prs={e1prs} diff={diff} close={close} />, { kind: 'center', locked: true })
+  const summary = () => ui().openSheet(close => <FinishSummary w={w} prs={prs} e1prs={e1prs} close={close} />, { kind: 'center', locked: true })
+  // The workout is already saved above, so the plan question can never cost a session.
+  if (followedPlan(diff)) summary()
+  else ui().openSheet(close => <PlanUpdate w={w} diff={diff} close={close} onDone={summary} />, { kind: 'center', locked: true })
 }
