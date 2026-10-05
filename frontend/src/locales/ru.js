@@ -707,4 +707,13 @@ export default {
   '{0}: rep-range floor': '{0}: нижняя граница диапазона повторений',
   '{0}: reps': '{0}: повторения',
   '{0}: sets': '{0}: подходы',
+  // plan check on finish
+  'Update your plan?': 'Обновить план?',
+  'This session didn’t match {0}. Want the plan to match what you did?': 'Эта тренировка отличалась от {0}. Обновить план под то, что вы сделали?',
+  '{0} → {1} sets': '{0} → {1} подх.',
+  'new · {0} sets': 'новое · {0} подх.',
+  'Skipped exercises stay in the plan.': 'Пропущенные упражнения остаются в плане.',
+  'Update plan': 'Обновить план',
+  'Keep plan as is': 'Оставить план',
+  'Plan updated': 'План обновлён'
 }

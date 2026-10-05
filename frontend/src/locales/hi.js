@@ -707,4 +707,13 @@ export default {
   '{0}: rep-range floor': '{0}: रेप-रेंज की न्यूनतम सीमा',
   '{0}: reps': '{0}: रेप्स',
   '{0}: sets': '{0}: सेट',
+  // plan check on finish
+  'Update your plan?': 'अपना प्लान अपडेट करें?',
+  'This session didn’t match {0}. Want the plan to match what you did?': 'यह सेशन {0} से मेल नहीं खाता। जो आपने किया, प्लान को वैसा कर दें?',
+  '{0} → {1} sets': '{0} → {1} सेट',
+  'new · {0} sets': 'नया · {0} सेट',
+  'Skipped exercises stay in the plan.': 'छोड़े गए व्यायाम प्लान में बने रहेंगे।',
+  'Update plan': 'प्लान अपडेट करें',
+  'Keep plan as is': 'प्लान वैसा ही रखें',
+  'Plan updated': 'प्लान अपडेट हो गया'
 }

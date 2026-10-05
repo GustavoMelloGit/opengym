@@ -707,4 +707,13 @@ export default {
   '{0}: rep-range floor': '{0}: tekrar aralığı alt sınırı',
   '{0}: reps': '{0}: tekrar',
   '{0}: sets': '{0}: set',
+  // plan check on finish
+  'Update your plan?': 'Planını güncelle?',
+  'This session didn’t match {0}. Want the plan to match what you did?': 'Bu antrenman {0} planına uymadı. Planı yaptığın gibi güncelleyelim mi?',
+  '{0} → {1} sets': '{0} → {1} set',
+  'new · {0} sets': 'yeni · {0} set',
+  'Skipped exercises stay in the plan.': 'Atladığın egzersizler planda kalır.',
+  'Update plan': 'Planı güncelle',
+  'Keep plan as is': 'Planı koru',
+  'Plan updated': 'Plan güncellendi'
 }

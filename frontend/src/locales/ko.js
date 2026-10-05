@@ -707,4 +707,13 @@ export default {
   '{0}: rep-range floor': '{0}: 횟수 범위 하한',
   '{0}: reps': '{0}: 횟수',
   '{0}: sets': '{0}: 세트',
+  // plan check on finish
+  'Update your plan?': '플랜을 업데이트할까요?',
+  'This session didn’t match {0}. Want the plan to match what you did?': '이번 세션은 {0}와 달랐어요. 실제로 한 대로 플랜을 바꿀까요?',
+  '{0} → {1} sets': '{0} → {1}세트',
+  'new · {0} sets': '새 운동 · {0}세트',
+  'Skipped exercises stay in the plan.': '건너뛴 운동은 플랜에 그대로 남아요.',
+  'Update plan': '플랜 업데이트',
+  'Keep plan as is': '플랜 유지',
+  'Plan updated': '플랜이 업데이트됐어요'
 }

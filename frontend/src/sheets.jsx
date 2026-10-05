@@ -20,6 +20,7 @@ import { buildPlanBundle, parsePlan, mergePlan, printPlan } from './lib/plan-sha
 import { estimate1RM, best1RM, is1RMRecord, REP_CAP } from './lib/onerm.js'
 import { nextPrescription, applyPrescription, policyFor, defaultIncrement, POLICIES_FOR, POLICY_NAME, POLICY_DESC } from './lib/progression.js'
 import { MOBILE, shareExport } from './lib/mobile.js'
+import { planDiff, followedPlan, adoptSession } from './lib/plan-diff.js'
 
 const S = () => useStore.getState().S
 const update = (...a) => useStore.getState().update(...a)
@@ -880,6 +881,33 @@ function SessionRating({ w }) {
   </div>
 }
 
+// Asked as soon as the workout is finished, before the summary, and only when the session
+// strayed from its routine: added exercises or a different number of sets. Skipped exercises
+// never count (see plan-diff.js). Either answer carries on to the summary.
+function PlanUpdate({ w, diff, close, onDone }) {
+  const st = useStore(s => s.S)
+  const r = st.routines.find(x => x.id === w.routineId)
+  const nm = id => (EXIDX[id] || {}).n || id
+  const keep = () => { close(); onDone() }
+  const adopt = () => {
+    update(s => { const rr = s.routines.find(x => x.id === w.routineId); if (rr) rr.ex = adoptSession(rr.ex, w.entries) })
+    toast(t('Plan updated')); keep()
+  }
+  if (!r) return null
+  return <div style={{ padding: '4px 0' }}>
+    <h3 style={{ marginBottom: 8, textAlign: 'center' }}>{t('Update your plan?')}</h3>
+    <div className="muted" style={{ marginBottom: 12, lineHeight: 1.5, textAlign: 'center' }}>{t('This session didn’t match {0}. Want the plan to match what you did?', r.name)}</div>
+    <div className="list" style={{ marginBottom: 8 }}>
+      {diff.changed.map((c, i) => <div key={'c' + i} className="item"><div className="grow capitalize">{nm(c.id)}</div><span className="tag">{t('{0} → {1} sets', c.from, c.to)}</span></div>)}
+      {diff.added.map((a, i) => <div key={'a' + i} className="item"><div className="grow capitalize">{nm(a.id)}</div><span className="tag acc">{t('new · {0} sets', a.sets)}</span></div>)}
+    </div>
+    <div className="small dim" style={{ marginBottom: 16, textAlign: 'center' }}>{t('Skipped exercises stay in the plan.')}</div>
+    <Button variant="primary" onClick={adopt}>{t('Update plan')}</Button>
+    <div style={{ height: 8 }} />
+    <Button variant="ghost" className="dim" onClick={keep}>{t('Keep plan as is')}</Button>
+  </div>
+}
+
 function FinishSummary({ w, prs, e1prs = [], close }) {
   const st = useStore(s => s.S)
   const coachOn = !!useStore(s => s.config)?.coach?.enabled && !!st.coach?.consent?.agreedAt
@@ -935,6 +963,8 @@ function doFinishWorkout() {
     prs
   }
   w.vol = workoutVolume(w)
+  // Compared before the save, against the routine as it stood when the session ended.
+  const diff = planDiff(st.routines.find(r => r.id === A.routineId), w.entries)
   update(s => {
     w.entries.forEach(e => {
       const mx = Math.max(0, ...e.sets.filter(x => x.done).map(x => x.w || 0), e.topW || 0)
@@ -945,5 +975,8 @@ function doFinishWorkout() {
   })
   useUI.getState().stopRest()
   beep(snd(), 880, 0.15); beep(snd(), 1100, 0.15, 0.18); beep(snd(), 1320, 0.3, 0.36)
-  ui().openSheet(close => <FinishSummary w={w} prs={prs} e1prs={e1prs} close={close} />, { kind: 'center', locked: true })
+  const summary = () => ui().openSheet(close => <FinishSummary w={w} prs={prs} e1prs={e1prs} close={close} />, { kind: 'center', locked: true })
+  // The workout is already saved above, so the plan question can never cost a session.
+  if (followedPlan(diff)) summary()
+  else ui().openSheet(close => <PlanUpdate w={w} diff={diff} close={close} onDone={summary} />, { kind: 'center', locked: true })
 }

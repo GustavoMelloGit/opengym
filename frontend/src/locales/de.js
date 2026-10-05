@@ -725,4 +725,13 @@ export default {
   '{0}: rep-range floor': '{0}: Untergrenze des Wiederholungsbereichs',
   '{0}: reps': '{0}: Wiederholungen',
   '{0}: sets': '{0}: Sätze',
+  // plan check on finish
+  'Update your plan?': 'Plan aktualisieren?',
+  'This session didn’t match {0}. Want the plan to match what you did?': 'Diese Einheit wich von {0} ab. Soll der Plan so aussehen, wie du trainiert hast?',
+  '{0} → {1} sets': '{0} → {1} Sätze',
+  'new · {0} sets': 'neu · {0} Sätze',
+  'Skipped exercises stay in the plan.': 'Ausgelassene Übungen bleiben im Plan.',
+  'Update plan': 'Plan aktualisieren',
+  'Keep plan as is': 'Plan beibehalten',
+  'Plan updated': 'Plan aktualisiert'
 }
