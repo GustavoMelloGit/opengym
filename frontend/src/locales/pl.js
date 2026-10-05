@@ -707,4 +707,13 @@ export default {
   '{0}: rep-range floor': '{0}: dolna granica zakresu powtórzeń',
   '{0}: reps': '{0}: powtórzenia',
   '{0}: sets': '{0}: serie',
+  // plan check on finish
+  'Update your plan?': 'Zaktualizować plan?',
+  'This session didn’t match {0}. Want the plan to match what you did?': 'Ta sesja odbiegała od {0}. Dopasować plan do tego, co zrobiłeś?',
+  '{0} → {1} sets': '{0} → {1} serii',
+  'new · {0} sets': 'nowe · {0} serii',
+  'Skipped exercises stay in the plan.': 'Pominięte ćwiczenia zostają w planie.',
+  'Update plan': 'Zaktualizuj plan',
+  'Keep plan as is': 'Zostaw plan',
+  'Plan updated': 'Plan zaktualizowany'
 }
