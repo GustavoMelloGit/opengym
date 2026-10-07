@@ -76,6 +76,29 @@ export default function Modals() {
     }
   }, [sheets.length > 0])
 
+  // The iOS keyboard covers the page instead of shrinking it, so a sheet pinned to the bottom
+  // sits behind it — and when a search narrows the list, the shorter sheet takes its own
+  // search field down under the keyboard too. --kb is how much of the layout viewport the
+  // keyboard hides; the sheet stands on top of it. Browsers that resize the page for the
+  // keyboard (Android Chrome) read 0 here and nothing changes.
+  useEffect(() => {
+    const vv = window.visualViewport
+    if (!sheets.length || !vv) return
+    const root = document.documentElement.style
+    const fit = () => {
+      const kb = Math.max(0, Math.round(window.innerHeight - vv.height - vv.offsetTop))
+      root.setProperty('--kb', kb + 'px')
+      // the home-indicator inset is hidden behind the keyboard — no gap for it above one
+      if (kb) root.setProperty('--sheet-sab', '0px'); else root.removeProperty('--sheet-sab')
+    }
+    fit()
+    vv.addEventListener('resize', fit); vv.addEventListener('scroll', fit)
+    return () => {
+      vv.removeEventListener('resize', fit); vv.removeEventListener('scroll', fit)
+      root.removeProperty('--kb'); root.removeProperty('--sheet-sab')
+    }
+  }, [sheets.length > 0])
+
   if (!sheets.length) return null
   return (
     <div id="modal-root" className="open">

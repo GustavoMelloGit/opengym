@@ -644,12 +644,15 @@ h4.sec{
   touch-action:none;overscroll-behavior:none;
 }
 .sheet{
-  position:absolute;left:0;right:0;bottom:0;background:var(--bg-el);
+  /* --kb: the on-screen keyboard's height where it overlays the page (see Modals.jsx) */
+  position:absolute;left:0;right:0;bottom:var(--kb,0px);background:var(--bg-el);
   border-radius:var(--r-xl) var(--r-xl) 0 0;
-  padding:8px 18px calc(20px + var(--sab));
-  /* 90vh alone ran up under the status bar / Dynamic Island on a full-screen iPhone */
-  max-height:min(90vh, calc(100vh - var(--sat) - 16px));
-  max-height:min(90dvh, calc(100dvh - var(--sat) - 16px));
+  padding:8px 18px calc(20px + var(--sheet-sab, var(--sab)));
+  /* 90vh alone ran up under the status bar / Dynamic Island on a full-screen iPhone. svh, not
+     dvh: the smallest viewport never changes while Safari's toolbar slides in and out, so the
+     sheet doesn't resize under your finger as the list scrolls. */
+  max-height:min(90vh, calc(100vh - var(--sat) - 16px - var(--kb,0px)));
+  max-height:min(90svh, calc(100svh - var(--sat) - 16px - var(--kb,0px)));
   overflow-y:auto;-webkit-overflow-scrolling:touch;
   animation:sheetup .34s var(--ease);
   overscroll-behavior:contain;touch-action:pan-y;will-change:transform;
