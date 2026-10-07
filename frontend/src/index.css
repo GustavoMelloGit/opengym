@@ -647,13 +647,22 @@ h4.sec{
   position:absolute;left:0;right:0;bottom:0;background:var(--bg-el);
   border-radius:var(--r-xl) var(--r-xl) 0 0;
   padding:8px 18px calc(20px + var(--sab));
-  max-height:90vh;overflow-y:auto;-webkit-overflow-scrolling:touch;
+  /* 90vh alone ran up under the status bar / Dynamic Island on a full-screen iPhone */
+  max-height:min(90vh, calc(100vh - var(--sat) - 16px));
+  max-height:min(90dvh, calc(100dvh - var(--sat) - 16px));
+  overflow-y:auto;-webkit-overflow-scrolling:touch;
   animation:sheetup .34s var(--ease);
   overscroll-behavior:contain;touch-action:pan-y;will-change:transform;
 }
 :root[data-theme="light"] .sheet{background:var(--bg)}
 @keyframes sheetup{from{transform:translateY(100%)}to{transform:none}}
-.sheet .grab{width:36px;height:5px;border-radius:99px;background:var(--label-4);margin:6px auto 14px}
+/* The grab bar is the sheet's only drag handle, so it stays pinned while the content scrolls
+   and gets a finger-sized hit area around the 5px pill. */
+.sheet .grab-zone{
+  position:sticky;top:-8px;z-index:2;margin:-8px -18px 0;padding:14px 0 14px;
+  background:inherit;touch-action:none;cursor:grab;
+}
+.sheet .grab{width:36px;height:5px;border-radius:99px;background:var(--label-4);margin:0 auto}
 .sheet h3{font-size:20px;font-weight:600;letter-spacing:-.021em;margin-bottom:14px}
 .center{
   position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);

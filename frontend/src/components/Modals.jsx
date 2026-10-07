@@ -1,27 +1,24 @@
 import { useEffect, useRef } from 'react'
 import { useUI } from '../store/useUI.js'
 
-// One bottom sheet (or centered dialog) with swipe-to-dismiss.
+// One bottom sheet (or centered dialog) with swipe-to-dismiss from its grab bar.
 function Sheet({ sheet }) {
   const { closeSheet } = useUI()
   const ref = useRef(null)
   const drag = useRef({ startY: null, delta: 0 })
 
+  // Only the grab bar moves the sheet. Started anywhere else, a gesture belongs to the content:
+  // a sideways swipe on a chip row, a slider, or the list scrolling back up to the top used to
+  // drag the whole sheet along with it.
   const onTouchStart = e => {
-    const el = ref.current
-    // a gesture that begins on a slider (or opted-out control) belongs to that control,
-    // not to the sheet's swipe-to-dismiss — so it keeps working while you drag
-    if (e.target.closest && e.target.closest('input[type=range], [data-nodrag]')) {
-      drag.current = { startY: null, delta: 0 }
-      return
-    }
-    drag.current = { startY: el.scrollTop <= 0 ? e.touches[0].clientY : null, delta: 0 }
+    const onGrab = e.target.closest && e.target.closest('.grab-zone')
+    drag.current = { startY: onGrab ? e.touches[0].clientY : null, delta: 0 }
   }
   const onTouchMove = e => {
     const el = ref.current, d = drag.current
     if (d.startY === null) return
     d.delta = e.touches[0].clientY - d.startY
-    if (d.delta > 0 && el.scrollTop <= 0) {
+    if (d.delta > 0) {
       e.preventDefault()
       el.style.transition = 'none'
       el.style.transform = `translateY(${d.delta}px)`
@@ -57,7 +54,7 @@ function Sheet({ sheet }) {
     <div>
       <div className="mback" onClick={() => { if (!sheet.locked) close() }} />
       <div className="sheet" ref={ref} onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
-        <div className="grab" />
+        <div className="grab-zone"><div className="grab" /></div>
         {sheet.render(close)}
       </div>
     </div>
