@@ -246,7 +246,8 @@ export function build(S, uid, opts = {}) {
     task: opts.kind === 'review' ? 'review' : 'create',
     meta: {
       profile: handle(uid),
-      lang: S.lang || 'en',
+      // the app's Portuguese is Brazilian, so ask the coach for that variant too
+      lang: S.lang === 'pt' ? 'pt-BR' : (S.lang || 'en'),
       unit: S.unit || 'kg',
       effortScale: effortOf(S),
       today: iso(new Date())
