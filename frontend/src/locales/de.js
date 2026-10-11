@@ -94,6 +94,9 @@ export default {
   'Weight ({0})': 'Gewicht ({0})',
   'Add to routine': 'Zur Routine hinzufügen',
   'Remove exercise': 'Übung entfernen',
+  'Remove': 'Entfernen',
+  'Remove “{0}”?': '„{0}“ entfernen?',
+  'The sets you logged for it in this session will be lost.': 'Die Sätze, die du dafür in dieser Einheit eingetragen hast, gehen verloren.',
   'Pick an icon': 'Symbol auswählen',
   // --- day planning / calendar ---
   'Back to weekly plan': 'Zurück zum Wochenplan',
