@@ -3,6 +3,8 @@
 // import.meta.glob entry), so the initial bundle stays English-only.
 // Exercise instructions come from separately generated packs in src/instr/ (one per
 // language, from the upstream dataset) — also lazy-loaded on language switch.
+// Exercise names have no upstream translations; src/names/ holds hand-made packs for the
+// languages that have one, and every other language shows the English name.
 import { useSyncExternalStore } from 'react'
 
 // UI languages. de/pt have no instruction pack upstream — instructions fall back to English.
@@ -19,10 +21,12 @@ const DATE_LOCALES = {
 
 const localePacks = import.meta.glob('../locales/*.js')
 const instrPacks = import.meta.glob('../instr/*.js')
+const namePacks = import.meta.glob('../names/*.js')
 
 let lang = 'en'
 let dict = {}
 let instr = null            // { exId: [steps] } for the current language, null = English
+let names = null            // { exId: name } for the current language, null = English
 let version = 0
 const subs = new Set()
 const notify = () => { version++; subs.forEach(f => f()) }
@@ -38,6 +42,9 @@ export function t(s, ...args) {
 }
 // Instructions for an exercise in the current language (English steps as fallback).
 export const instrFor = ex => (instr && instr[ex.id]) || ex.st || []
+// Display name of an exercise in the current language. Custom exercises keep the name
+// the user gave them; search and stored data keep using ex.n.
+export const nameFor = ex => (names && names[ex.id]) || ex.n
 
 export async function setLang(l) {
   if (!LANGS[l]) l = 'en'
@@ -46,7 +53,9 @@ export async function setLang(l) {
   try {
     dict = l === 'en' ? {} : (await localePacks['../locales/' + l + '.js']()).default
     instr = l === 'en' || !INSTR_LANGS.includes(l) ? null : (await instrPacks['../instr/' + l + '.js']()).default
-  } catch (e) { dict = {}; instr = null }
+    const np = namePacks['../names/' + l + '.js']
+    names = np ? (await np()).default : null
+  } catch (e) { dict = {}; instr = null; names = null }
   notify()
 }
 
