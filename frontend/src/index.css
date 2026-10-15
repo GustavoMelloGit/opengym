@@ -630,6 +630,19 @@ h4.sec{
 #timer.working{border:var(--hair) solid var(--acc)}
 #timer.working .t{color:var(--acc)}
 #timer.working .grow{flex:1;min-width:0}
+
+/* --- workout prev/next: pinned just above the tab bar, the rest timer stacks on top --- */
+#wnav{
+  position:fixed;left:12px;right:12px;bottom:calc(88px + var(--sab));z-index:55;
+  display:flex;gap:8px;padding:6px;border-radius:var(--r-lg);
+  background:color-mix(in srgb,var(--surface) 97%,transparent);
+  box-shadow:0 12px 34px -8px rgba(0,0,0,.55);
+  backdrop-filter:saturate(180%) blur(24px);-webkit-backdrop-filter:saturate(180%) blur(24px);
+}
+#wnav .btn{padding-top:12px;padding-bottom:12px}
+body.wnav #app{padding-bottom:calc(196px + var(--sab))}
+body.wnav.resting #app{padding-bottom:calc(318px + var(--sab))}
+body.wnav #timer{bottom:calc(156px + var(--sab))}
 #timer.working .lbl{
   font-size:12px;color:var(--label-2);margin-bottom:5px;text-transform:capitalize;
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
@@ -919,6 +932,8 @@ h4.sec{
   .sheet{left:50%;right:auto;margin-left:-320px;width:640px;border-radius:var(--r-xl) var(--r-xl) 0 0}
   .center{width:340px}
   #timer{left:50%;right:auto;margin-left:-260px;width:520px;bottom:112px}
+  #wnav{left:50%;right:auto;margin-left:-260px;width:520px;bottom:112px}
+  body.wnav #timer{bottom:180px}
   /* 520px fits the clock, the bar and all three controls on one line again */
   #timer.rest{flex-direction:row;align-items:center;gap:14px}
   #timer.rest .head{flex:1;min-width:0}
