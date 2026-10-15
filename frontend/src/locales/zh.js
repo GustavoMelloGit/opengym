@@ -120,7 +120,6 @@ export default {
   'Every exercise done — great work. Finish up, or keep going and add another exercise.': '所有动作都完成了——干得漂亮！结束训练，或继续添加新动作。',
   'Finish workout': '结束训练',
   'Continue workout': '继续训练',
-  'Keep going — tap “+ Add exercise” below': '继续加油 ——点按下方“+ 添加动作”',
   'Workout complete!': '训练完成！',
   'Duration': '时长',
   'Volume': '总量',

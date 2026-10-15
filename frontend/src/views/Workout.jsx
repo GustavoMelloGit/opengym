@@ -231,6 +231,14 @@ function ActiveWorkout() {
     else if (exJustDone && m === 'time') useUI.getState().toast(t('Hold logged'))
   }
 
+  // Adds to this session only; the routine is untouched.
+  const addExercise = () => exercisePicker(ex => exConfigSheet(ex, null, cfg => update(s => {
+    const full = { ...cfg, id: ex.id }
+    const plan = nextPrescription(s, full, s.routines.find(r => r.id === s.active.routineId))
+    s.active.entries.push({ id: ex.id, target: { ...cfg }, plan, sets: applyPrescription(buildSets(s, full), plan) })
+    s.active.cur = s.active.entries.length - 1
+  }), null, S.routines.find(r => r.id === A.routineId)))
+
   const hasNav = units.length > 1
   useEffect(() => {
     document.body.classList.toggle('wnav', hasNav)
@@ -273,7 +281,12 @@ function ActiveWorkout() {
     <div className="wprog"><i style={{ width: (total ? done / total * 100 : 0) + '%' }} /></div>
 
     {A.entries.length ? <>
-      <div className="muted small" style={{ marginBottom: 6 }}>{isSuperset ? t('Superset {0} / {1}', unitIdx + 1, units.length) : t('Exercise {0} / {1}', unitIdx + 1, units.length)}</div>
+      {/* Adding sits next to the counter, at the top: under a long set list it took a scroll
+          to the bottom to reach. */}
+      <div className="row between" style={{ marginBottom: 6 }}>
+        <div className="muted small">{isSuperset ? t('Superset {0} / {1}', unitIdx + 1, units.length) : t('Exercise {0} / {1}', unitIdx + 1, units.length)}</div>
+        <Button size="xs" icon="plus" onClick={addExercise}>{t('Add exercise')}</Button>
+      </div>
       {isSuperset ? (
         <div className="ss-card">
           <div className="ss-hd"><Icon name="link" />{t('Superset · do these back-to-back, rest after both')}</div>
@@ -286,15 +299,11 @@ function ActiveWorkout() {
       ) : (
         <ExerciseBlock entryIdx={cur} onToggle={i => toggle(cur, i)} onField={(i, f, v) => setField(cur, i, f, v)} onAddSet={() => addSet(cur)} onRemoveSet={() => removeSet(cur)} onStartTimed={i => startTimed(cur, i)} onRemove={() => removeEntry(cur)} />
       )}
-    </> : <div className="empty"><div className="ico"><Icon name="shuffle" /></div>{t('Freestyle workout — add your first exercise.')}</div>}
+    </> : <>
+      <div className="empty"><div className="ico"><Icon name="shuffle" /></div>{t('Freestyle workout — add your first exercise.')}</div>
+      <Button variant="primary" icon="plus" onClick={addExercise}>{t('Add exercise')}</Button>
+    </>}
 
-    <div style={{ height: 12 }} />
-    <Button onClick={() => exercisePicker(ex => exConfigSheet(ex, null, cfg => update(s => {
-      const full = { ...cfg, id: ex.id }
-      const plan = nextPrescription(s, full, s.routines.find(r => r.id === s.active.routineId))
-      s.active.entries.push({ id: ex.id, target: { ...cfg }, plan, sets: applyPrescription(buildSets(s, full), plan) })
-      s.active.cur = s.active.entries.length - 1
-    }), null, S.routines.find(r => r.id === A.routineId)))} icon="plus">{t('Add exercise')}</Button>
 
     {/* Prev/Next live in a bar pinned above the tab bar rather than under the sets, so moving
         on never means scrolling past a long set list first. Finishing — early or not — is the

@@ -120,7 +120,6 @@ export default {
   'Every exercise done — great work. Finish up, or keep going and add another exercise.': 'सारे व्यायाम पूरे — बढ़िया काम! समाप्त करें, या जारी रखें और एक और व्यायाम जोड़ें।',
   'Finish workout': 'वर्कआउट समाप्त करें',
   'Continue workout': 'वर्कआउट जारी रखें',
-  'Keep going — tap “+ Add exercise” below': 'जारी रखें — नीचे "+ व्यायाम जोड़ें" पर टैप करें',
   'Workout complete!': 'वर्कआउट पूरा!',
   'Duration': 'अवधि',
   'Volume': 'वॉल्यूम',

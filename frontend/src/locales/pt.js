@@ -151,7 +151,6 @@ export default {
   'Every exercise done — great work. Finish up, or keep going and add another exercise.': 'Todos os exercícios feitos — ótimo trabalho! Finalize ou continue e adicione outro exercício.',
   'Finish workout': 'Finalizar treino',
   'Continue workout': 'Continuar treino',
-  'Keep going — tap “+ Add exercise” below': 'Continue — toque em “+ Adicionar exercício” abaixo',
   'Workout complete!': 'Treino concluído!',
   'Duration': 'Duração',
   'Volume': 'Volume',

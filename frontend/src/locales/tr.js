@@ -120,7 +120,6 @@ export default {
   'Every exercise done — great work. Finish up, or keep going and add another exercise.': 'Tüm egzersizler bitti — harika iş! Bitir ya da devam edip yeni bir egzersiz ekle.',
   'Finish workout': 'Antrenmanı bitir',
   'Continue workout': 'Antrenmana devam et',
-  'Keep going — tap “+ Add exercise” below': 'Devam — aşağıdaki “+ Egzersiz ekle”ye dokun',
   'Workout complete!': 'Antrenman tamamlandı!',
   'Duration': 'Süre',
   'Volume': 'Hacim',

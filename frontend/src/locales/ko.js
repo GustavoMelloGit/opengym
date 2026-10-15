@@ -120,7 +120,6 @@ export default {
   'Every exercise done — great work. Finish up, or keep going and add another exercise.': '모든 운동 완료 — 수고했어요! 마무리하거나, 계속해서 운동을 추가하세요.',
   'Finish workout': '운동 마치기',
   'Continue workout': '운동 계속하기',
-  'Keep going — tap “+ Add exercise” below': '계속 가요 — 아래 "+ 운동 추가"를 탭하세요',
   'Workout complete!': '운동 완료!',
   'Duration': '시간',
   'Volume': '볼륨',
