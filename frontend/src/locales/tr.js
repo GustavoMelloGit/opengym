@@ -704,6 +704,7 @@ export default {
   'This session didn’t match {0}. Want the plan to match what you did?': 'Bu antrenman {0} planına uymadı. Planı yaptığın gibi güncelleyelim mi?',
   '{0} → {1} sets': '{0} → {1} set',
   'new · {0} sets': 'yeni · {0} set',
+  'removed': 'kaldırıldı',
   'Skipped exercises stay in the plan.': 'Atladığın egzersizler planda kalır.',
   'Update plan': 'Planı güncelle',
   'Keep plan as is': 'Planı koru',

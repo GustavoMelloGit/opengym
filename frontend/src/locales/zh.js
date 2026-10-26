@@ -704,6 +704,7 @@ export default {
   'This session didn’t match {0}. Want the plan to match what you did?': '本次训练与 {0} 不一致。要按实际完成的内容更新计划吗？',
   '{0} → {1} sets': '{0} → {1} 组',
   'new · {0} sets': '新增 · {0} 组',
+  'removed': '已移除',
   'Skipped exercises stay in the plan.': '跳过的动作仍保留在计划中。',
   'Update plan': '更新计划',
   'Keep plan as is': '保持原计划',

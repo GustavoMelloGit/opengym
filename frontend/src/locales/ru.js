@@ -704,6 +704,7 @@ export default {
   'This session didn’t match {0}. Want the plan to match what you did?': 'Эта тренировка отличалась от {0}. Обновить план под то, что вы сделали?',
   '{0} → {1} sets': '{0} → {1} подх.',
   'new · {0} sets': 'новое · {0} подх.',
+  'removed': 'убрано',
   'Skipped exercises stay in the plan.': 'Пропущенные упражнения остаются в плане.',
   'Update plan': 'Обновить план',
   'Keep plan as is': 'Оставить план',

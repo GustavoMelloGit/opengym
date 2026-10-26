@@ -176,12 +176,15 @@ function ActiveWorkout() {
     else e.sets.push({ w: l ? l.w : 0, r: l ? l.r : e.target.reps, done: false })
   })
   const removeSet = idx => mutEntry(idx, e => { if (e.sets.length > 1) e.sets.pop() })
-  // Drops an exercise from this session only — an accidental pick in a freestyle workout, or
-  // one added on the day. The routine is untouched. Asks first only when sets were logged.
+  // Drops an exercise from this session — an accidental pick in a freestyle workout, or one
+  // added on the day. The routine is untouched here; a planned exercise taken out is noted in
+  // `removed` so finishing can offer to drop it from the plan too (see plan-diff.js). Asks
+  // first only when sets were logged.
   const removeEntry = idx => {
     const run = () => update(s => {
       const a = s.active
-      a.entries.splice(idx, 1)
+      const [gone] = a.entries.splice(idx, 1)
+      if (gone.planned) a.removed = [...(a.removed || []), gone.id]
       if (a.cur > idx) a.cur--
       a.cur = Math.max(0, Math.min(a.cur, a.entries.length - 1))
     })

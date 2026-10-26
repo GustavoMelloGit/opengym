@@ -793,6 +793,7 @@ export default {
   'This session didn’t match {0}. Want the plan to match what you did?': 'Esta sessão não seguiu {0}. Quer que o plano fique igual ao que você fez?',
   '{0} → {1} sets': '{0} → {1} séries',
   'new · {0} sets': 'novo · {0} séries',
+  'removed': 'removido',
   'Skipped exercises stay in the plan.': 'Exercícios pulados continuam no plano.',
   'Update plan': 'Atualizar plano',
   'Keep plan as is': 'Manter o plano',

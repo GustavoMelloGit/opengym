@@ -704,6 +704,7 @@ export default {
   'This session didn’t match {0}. Want the plan to match what you did?': '이번 세션은 {0}와 달랐어요. 실제로 한 대로 플랜을 바꿀까요?',
   '{0} → {1} sets': '{0} → {1}세트',
   'new · {0} sets': '새 운동 · {0}세트',
+  'removed': '제거됨',
   'Skipped exercises stay in the plan.': '건너뛴 운동은 플랜에 그대로 남아요.',
   'Update plan': '플랜 업데이트',
   'Keep plan as is': '플랜 유지',
