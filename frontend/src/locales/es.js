@@ -2588,4 +2588,11 @@ export default {
   'Just for this phone. Some home screens take a moment to catch up.': 'Solo para este móvil. Algunas pantallas de inicio tardan un momento en enterarse.',
   'The icon could not be changed.': 'No se pudo cambiar el icono.',
   'Try the Halloween app icon': 'Prueba el icono de Halloween',
+  // --- finishing a workout that strayed from its plan (lib/plan-changes.js) ---
+  'Update your plan?': '¿Actualizar tu plan?',
+  'This workout didn’t go the way your plan says. Update it to match what you did?': 'Este entrenamiento no fue como dice tu plan. ¿Lo actualizas para que coincida con lo que hiciste?',
+  'Added': 'Añadido',
+  'Skipped exercises stay in the plan.': 'Los ejercicios que saltaste siguen en el plan.',
+  'Update plan': 'Actualizar plan',
+  'Keep the plan as it is': 'Dejar el plan como está',
 }

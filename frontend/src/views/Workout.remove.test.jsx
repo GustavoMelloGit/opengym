@@ -114,6 +114,17 @@ describe('active-session exercise removal', () => {
     expect(active.entries[0].sets[0].sec).toBeUndefined()
   })
 
+  // Finishing offers to drop it from the routine too (lib/plan-changes.js); a freestyle pick or an
+  // exercise added today has no routine slot to give up.
+  it('notes a planned exercise removed on purpose, and nothing else', () => {
+    setActive([{ ...entry('1001'), rid: 'r1' }, { ...entry('1002'), rid: 'r1', addedInSession: true }, entry('1003')], 0)
+    act(() => { removeActiveExercise(2) })
+    act(() => { removeActiveExercise(1) })
+    expect(useStore.getState().S.active.removed).toBeUndefined()
+    act(() => { removeActiveExercise(0) })
+    expect(useStore.getState().S.active.removed).toEqual([{ rid: 'r1', id: '1001' }])
+  })
+
   it('cancels a running rest countdown when the exercise it belongs to is removed', () => {
     setActive([entry('1001'), entry('1002')], 0)
     useUI.getState().startRest(90, 0)

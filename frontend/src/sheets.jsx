@@ -54,7 +54,8 @@ import { buildCompletedWorkout, sessionEnd } from './lib/finish-workout.js'
 import { refillAfter } from './lib/rotation.js'
 import { isWarmupRow, hasCompletedWork } from './lib/workout-model.js'
 import { ownExerciseRest } from './lib/supersetFlow.js'
-import { saveSessionAsRoutine, routineAdditions, addToRoutine } from './lib/session-routines.js'
+import { saveSessionAsRoutine } from './lib/session-routines.js'
+import { planChanges, applyPlanChange } from './lib/plan-changes.js'
 import { repeatSessionEntries } from './lib/session-repeat.js'
 import { swapActiveExercise } from './lib/active-exercise-swap.js'
 import { useSheetKeyboard, useRevealActiveChip, tappable } from './lib/use-sheet-keyboard.js'
@@ -1618,7 +1619,7 @@ export function swapActiveWorkoutExercise(index) {
   const picker = exercisePicker((ex, quick) => quick ? swapTo(ex, pickedExerciseConfig(ex.id)) : exConfigSheet(ex, null, cfg => swapTo(ex, cfg), null, null, null, null, t('Use in this workout')), { title: t('Swap exercise'), like: active.entries[index].id, backups: active.entries[index].target?.subs })
   function swapTo(ex, cfg) {
     // The picker is a chooser here, not a stack you keep adding from: one swap, then back to
-    // the workout. (The add flow deliberately leaves it open.)
+    // the workout. (The add flows close it the same way once an exercise is in.)
     picker.close()
     commitActiveSwap(index, ex, cfg)
   }
@@ -3526,7 +3527,8 @@ function WorkoutComplete({ close }) {
     <div className="muted small" style={{ marginBottom: 16 }}>{t('All exercises done. Nice work! Finish up, or add another one if you’ve got more in you.')}</div>
     <Button variant="primary" icon="flag" onClick={() => { close(); finishWorkout() }}>{t('Finish workout')}</Button>
     <div style={{ height: 8 }} />
-    <Button onClick={() => { close(); useUI.getState().toast(t('Keep going: tap “+ Add exercise” below')) }}>{t('Continue workout')}</Button>
+    {/* Add exercise is the "+" at the top of the workout now, in plain sight: no directions needed. */}
+    <Button onClick={close}>{t('Continue workout')}</Button>
   </div>
 }
 export const workoutCompleteSheet = () => ui().openSheet(close => <WorkoutComplete close={close} />, { kind: 'center' })
@@ -3650,29 +3652,41 @@ function CardioDone({ st, w }) {
   </div>
 }
 
-// Exercises added during a routine's session, offered to that routine for next time (#592). One
-// tap adds them with today's setup; leaving the summary without it changes nothing.
-function KeepInRoutine({ additions }) {
-  const [added, setAdded] = useState({})
-  if (!additions?.length) return null
-  const keep = a => {
+// Asked as soon as a routine's workout is finished, before the summary, and only when the session
+// strayed from its plan: an exercise added and done, a different number of sets, or one taken out
+// on purpose (lib/plan-changes.js). Skipped exercises never count. Either answer goes on to the
+// summary; the workout is already saved, so the question can never cost a session.
+function PlanUpdate({ changes, close, onDone }) {
+  const nm = id => EXIDX[id] ? exerciseNameText(EXIDX[id]) : id
+  const keep = () => { close(); onDone() }
+  const adopt = () => {
     let n = 0
-    update(s => { n = addToRoutine(s.routines.find(r => r.id === a.routineId), a.ex) })
-    setAdded(x => ({ ...x, [a.routineId]: true }))
+    update(s => { for (const c of changes) if (applyPlanChange(s.routines.find(r => r.id === c.routineId), c)) n++ })
     if (n) ui().toast(t('Routine updated'))
+    keep()
   }
-  return <div style={{ textAlign: 'start', marginBottom: 14 }} data-keep-in-routine>
-    <h4 className="sec">{t('New in this workout')}</h4>
-    {additions.map(a => <div key={a.routineId} style={{ marginBottom: 8 }}>
-      <div className="small dim" style={{ marginBottom: 6 }}>{a.ex.map(cfg => EXIDX[cfg.id] ? exerciseNameText(EXIDX[cfg.id]) : cfg.id).join(', ')}</div>
-      {added[a.routineId]
-        ? <div className="small accent row" style={{ gap: 6 }}><Icon name="checkCircle" /><span>{t('Added to “{0}”', a.name)}</span></div>
-        : <Button icon="plusCircle" onClick={() => keep(a)}>{tn('Add it to “{1}”', 'Add them to “{1}”', a.ex.length, a.name)}</Button>}
+  return <div style={{ padding: '4px 0' }} data-plan-update>
+    <h3 style={{ marginBottom: 8, textAlign: 'center' }}>{t('Update your plan?')}</h3>
+    <div className="muted" style={{ marginBottom: 12, lineHeight: 1.5, textAlign: 'center' }}>{t('This workout didn’t go the way your plan says. Update it to match what you did?')}</div>
+    {changes.map(c => <div key={c.routineId} style={{ marginBottom: 8, textAlign: 'start' }}>
+      <h4 className="sec">{c.name}</h4>
+      <div className="list">
+        {c.changed.map(x => <div key={'c' + x.slot} className="item"><div className="grow">{nm(x.id)}</div>
+          <span className="tag nocap">{x.from} → {tn('{0} set', '{0} sets', x.to)}</span></div>)}
+        {c.added.map((x, i) => <div key={'a' + i} className="item"><div className="grow">{nm(x.id)}</div>
+          <span className="tag acc nocap">{t('Added')} · {tn('{0} set', '{0} sets', x.sets)}</span></div>)}
+        {c.removed.map(x => <div key={'r' + x.slot} className="item"><div className="grow">{nm(x.id)}</div>
+          <span className="tag nocap">{t('Removed')}</span></div>)}
+      </div>
     </div>)}
+    <div className="small dim" style={{ margin: '4px 0 16px', textAlign: 'center' }}>{t('Skipped exercises stay in the plan.')}</div>
+    <Button variant="primary" onClick={adopt}>{t('Update plan')}</Button>
+    <div style={{ height: 8 }} />
+    <Button variant="ghost" className="dim" onClick={keep}>{t('Keep the plan as it is')}</Button>
   </div>
 }
 
-function FinishSummary({ w, prs, e1prs = [], additions = [], close }) {
+function FinishSummary({ w, prs, e1prs = [], close }) {
   const st = useStore(s => s.S)
   return <div style={{ textAlign: 'center', padding: '8px 0' }}>
     {/* Sticky, so the summary can be left from the top however far it has been scrolled. */}
@@ -3694,7 +3708,6 @@ function FinishSummary({ w, prs, e1prs = [], additions = [], close }) {
     <div style={{ height: 14 }} />
     <LastAndNext st={st} w={w} />
     <CardioDone st={st} w={w} />
-    <KeepInRoutine additions={additions} />
     {/* The moment for a progress photo or the clip of a set: the workout is already saved, so
         what is added here goes straight onto its record. */}
     <div style={{ textAlign: 'start' }}><WorkoutMediaSection w={w} hint /></div>
@@ -3761,8 +3774,8 @@ function doFinishWorkout() {
     snapshotFor: e => isCustomEx(EXIDX[e.id]) ? exerciseMuscleSnapshot(EXIDX[e.id]) : null,
   })
   w.vol = workoutVolume(w)
-  // Read before the session is gone: the summary offers these to their routines (#592).
-  const additions = past ? [] : routineAdditions(A, st.routines)
+  // Read before the session is gone: how it strayed from its routines, offered before the summary.
+  const changes = past ? [] : planChanges(A, st.routines)
   let shown = w
   update(s => {
     if (past) {
@@ -3793,5 +3806,7 @@ function doFinishWorkout() {
   // into s.active, which is gone. What it held is not logged, like any set left unchecked.
   useUI.getState().stopWork()
   beep(snd(), 880, 0.15); beep(snd(), 1100, 0.15, 0.18); beep(snd(), 1320, 0.3, 0.36)
-  ui().openSheet(close => <FinishSummary w={shown} prs={prs} e1prs={e1prs} additions={additions} close={close} />, { kind: 'center', locked: true, wide: true })
+  const summary = () => ui().openSheet(close => <FinishSummary w={shown} prs={prs} e1prs={e1prs} close={close} />, { kind: 'center', locked: true, wide: true })
+  if (changes.length) ui().openSheet(close => <PlanUpdate changes={changes} close={close} onDone={summary} />, { kind: 'center', locked: true })
+  else summary()
 }

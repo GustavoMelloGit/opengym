@@ -11,6 +11,9 @@ import { isWarmupRow } from '../lib/workout-model.js'
 import { discardedFor } from '../lib/watch-sync.js'
 import { finishWorkout, finishWorkoutSheet } from '../sheets.jsx'
 
+// The workout's Add exercise: the "+" beside the exercise chips, or the button of an empty workout.
+const isAddExercise = b => b.textContent.trim() === 'Add exercise' || b.getAttribute('aria-label') === 'Add exercise'
+
 // A menu's actions in order, whether it came as one list or in groups (menuSheet `sections`).
 const menuItemsOf = menu => (menu.sections ? menu.sections.flatMap(g => g.items || []) : menu.items || []).filter(Boolean)
 
@@ -27,7 +30,9 @@ const mocks = vi.hoisted(() => {
     stopWork: null,
     confirmSheet: vi.fn(),
     workoutCompleteSheet: vi.fn(),
-    exercisePicker: vi.fn(),
+    // The add flow closes the picker it opened once the exercise is in.
+    pickerClose: vi.fn(),
+    exercisePicker: vi.fn(() => ({ close: state.pickerClose })),
     exConfigSheet: vi.fn(),
     toast: vi.fn(),
     scrollCalls: [],
@@ -231,7 +236,7 @@ async function rerender() {
 
 async function addExerciseThroughSheets(ex = { id: 'added-exercise' }, cfg = { mode: 'reps', sets: 1, reps: 5, weight: 0 }) {
   const addButton = [...container.querySelectorAll('button')]
-    .find(button => button.textContent.trim() === 'Add exercise')
+    .find(button => isAddExercise(button))
   expect(addButton).toBeTruthy()
   await act(async () => { addButton.dispatchEvent(new dom.Event('click', { bubbles: true })) })
 
@@ -241,7 +246,9 @@ async function addExerciseThroughSheets(ex = { id: 'added-exercise' }, cfg = { m
 
   const configCall = mocks.exConfigSheet.mock.calls.at(-1)
   expect(configCall?.[2]).toEqual(expect.any(Function))
+  expect(mocks.pickerClose).not.toHaveBeenCalled()
   await act(async () => { configCall[2](cfg) })
+  expect(mocks.pickerClose).toHaveBeenCalledOnce()
 }
 
 // The list's scroll-to-current waits for the next frame. linkedom has no requestAnimationFrame,
@@ -2699,6 +2706,33 @@ describe('list layout: only what is left to do (Discord request, #241)', () => {
     await flushFrame()
     expect(mocks.scrollCalls.at(-1).node.dataset.unitKey).toBe('0')
     expect(mocks.S.active.cur).toBe(1)
+  })
+})
+
+describe('getting around a long workout without scrolling', () => {
+  const session = () => [exercise('bench', [false]), exercise('row', [false])]
+
+  it('pins Prev and Next to the bottom edge and leaves no Finish button under the sets', async () => {
+    await mount(session(), 0)
+    const nav = container.querySelector('#wnav')
+    expect(nav).toBeTruthy()
+    expect([...nav.querySelectorAll('button')].map(b => b.textContent.trim())).toEqual(['Prev', 'Next'])
+    expect(dom.document.body.classList.contains('wnav')).toBe(true)
+    expect([...container.querySelectorAll('button')].some(b => /Finish workout/.test(b.textContent))).toBe(false)
+  })
+
+  it('has nothing to pin with a single exercise', async () => {
+    await mount([exercise('bench', [false])], 0)
+    expect(container.querySelector('#wnav')).toBeNull()
+    expect(dom.document.body.classList.contains('wnav')).toBe(false)
+  })
+
+  it('offers Add exercise at the top, beside the chips, and opens the picker from there', async () => {
+    await mount(session(), 0)
+    const add = container.querySelector('.wchips-row .wadd')
+    expect(add?.getAttribute('aria-label')).toBe('Add exercise')
+    await act(async () => { add.dispatchEvent(new dom.Event('click', { bubbles: true })) })
+    expect(mocks.exercisePicker).toHaveBeenCalledOnce()
   })
 })
 

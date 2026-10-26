@@ -2643,4 +2643,11 @@ export default {
   'Just for this phone. Some home screens take a moment to catch up.': 'لهذا الهاتف فقط. بعض الشاشات الرئيسية تحتاج لحظة لتلحق.',
   'The icon could not be changed.': 'تعذّر تغيير الأيقونة.',
   'Try the Halloween app icon': 'جرّب أيقونة التطبيق الخاصة بالهالوين',
+  // --- finishing a workout that strayed from its plan (lib/plan-changes.js) ---
+  'Update your plan?': 'تحديث خطتك؟',
+  'This workout didn’t go the way your plan says. Update it to match what you did?': 'لم يسر هذا التمرين كما تقول خطتك. هل تريد تحديثها لتطابق ما فعلته؟',
+  'Added': 'أُضيف',
+  'Skipped exercises stay in the plan.': 'التمارين التي تخطيتها تبقى في الخطة.',
+  'Update plan': 'تحديث الخطة',
+  'Keep the plan as it is': 'إبقاء الخطة كما هي',
 }

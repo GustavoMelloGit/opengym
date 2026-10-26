@@ -1670,6 +1670,13 @@ export const PT_BR_OVERRIDES = {
   'App icon': 'Ícone do app',
   'Just for this phone. Some home screens take a moment to catch up.': 'Só para este celular. Algumas telas iniciais demoram um pouco para perceber.',
   'Try the Halloween app icon': 'Experimente o ícone de Halloween do app',
+  // --- finishing a workout that strayed from its plan (lib/plan-changes.js) ---
+  'Update your plan?': 'Atualizar seu plano?',
+  'This workout didn’t go the way your plan says. Update it to match what you did?': 'Este treino não seguiu o que o plano diz. Quer atualizar o plano para ficar igual ao que você fez?',
+  'Added': 'Adicionado',
+  'Skipped exercises stay in the plan.': 'Exercícios pulados continuam no plano.',
+  'Update plan': 'Atualizar plano',
+  'Keep the plan as it is': 'Manter o plano como está',
 }
 
 export default { ...pt, ...PT_BR_OVERRIDES }

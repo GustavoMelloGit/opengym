@@ -437,14 +437,19 @@ export default function RoutineEdit() {
     cleanupSg(ex)
   })
 
-  const addExercise = () => exercisePicker((ex, quick) => {
-    if (quick) {
-      edit(x => x.push({ id: ex.id, ...pickedExerciseConfig(ex.id) }))
-      toast(t('“{0}” added to {1}', exerciseNameText(ex), r.name))
-    } else {
-      exConfigSheet(ex, null, cfg => edit(x => { x.push({ id: ex.id, ...cfg }) }), null, r, null, null, undefined, { backups: true })
-    }
-  })
+  // Once an exercise is in, the list closes with it, whether it went in from the row's "+" or
+  // through its config. Backing out of the config without saving returns to the list.
+  const addExercise = () => {
+    const picker = exercisePicker((ex, quick) => {
+      if (quick) {
+        picker.close()
+        edit(x => x.push({ id: ex.id, ...pickedExerciseConfig(ex.id) }))
+        toast(t('“{0}” added to {1}', exerciseNameText(ex), r.name))
+      } else {
+        exConfigSheet(ex, null, cfg => { picker.close(); edit(x => { x.push({ id: ex.id, ...cfg }) }) }, null, r, null, null, undefined, { backups: true })
+      }
+    })
+  }
 
   const units = supersetUnits(r.ex)
   const unitFirst = new Set(units.filter(u => u.length > 1).map(u => u[0]))

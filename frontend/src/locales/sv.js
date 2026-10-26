@@ -2635,4 +2635,11 @@ export default {
   'Just for this phone. Some home screens take a moment to catch up.': 'Bara för den här telefonen. Vissa hemskärmar behöver en stund på sig att hänga med.',
   'The icon could not be changed.': 'Ikonen gick inte att byta.',
   'Try the Halloween app icon': 'Testa Halloween-appikonen',
+  // --- finishing a workout that strayed from its plan (lib/plan-changes.js) ---
+  'Update your plan?': 'Uppdatera planen?',
+  'This workout didn’t go the way your plan says. Update it to match what you did?': 'Det här passet blev inte som planen säger. Uppdatera den så att den stämmer med det du gjorde?',
+  'Added': 'Tillagd',
+  'Skipped exercises stay in the plan.': 'Övningar du hoppade över ligger kvar i planen.',
+  'Update plan': 'Uppdatera planen',
+  'Keep the plan as it is': 'Behåll planen som den är',
 }

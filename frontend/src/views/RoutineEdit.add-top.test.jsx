@@ -8,7 +8,8 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('../lib/api.js', () => ({ api: vi.fn(() => Promise.resolve({})) }))
-vi.mock('../sheets.jsx', () => ({ exConfigSheet: vi.fn(), exercisePicker: vi.fn(), glyphPicker: vi.fn(), confirmSheet: vi.fn() }))
+const pickerClose = vi.hoisted(() => vi.fn())
+vi.mock('../sheets.jsx', () => ({ exConfigSheet: vi.fn(), exercisePicker: vi.fn(() => ({ close: pickerClose })), glyphPicker: vi.fn(), confirmSheet: vi.fn() }))
 vi.mock('../components/Media.jsx', () => ({ Thumb: () => null }))
 vi.mock('../components/BodyMap.jsx', () => ({ default: () => null }))
 
@@ -59,10 +60,13 @@ describe('RoutineEdit — Add exercise at the top', () => {
     const ex = EXIDX['0025']
     act(() => onPick(ex, true))
     expect(stored().map(e => e.id)).toEqual(['0025'])
+    expect(pickerClose).toHaveBeenCalledOnce()
     act(() => onPick(ex, false))
     expect(exConfigSheet).toHaveBeenCalledOnce()
+    expect(pickerClose).toHaveBeenCalledOnce()   // still open while the settings are
     const save = exConfigSheet.mock.calls[0][2]
     act(() => save({ sets: 4, reps: 6, mode: 'reps', weight: 50 }))
+    expect(pickerClose).toHaveBeenCalledTimes(2)
     expect(stored()).toHaveLength(2)
     expect(stored()[1]).toMatchObject({ id: '0025', sets: 4, reps: 6 })
   })

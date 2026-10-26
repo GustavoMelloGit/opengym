@@ -2588,4 +2588,11 @@ export default {
   'Just for this phone. Some home screens take a moment to catch up.': '이 휴대폰에만 적용돼요. 홈 화면에 따라 바뀌는 데 잠깐 걸릴 수 있어요.',
   'The icon could not be changed.': '아이콘을 바꾸지 못했어요.',
   'Try the Halloween app icon': '핼러윈 앱 아이콘 써 보기',
+  // --- finishing a workout that strayed from its plan (lib/plan-changes.js) ---
+  'Update your plan?': '플랜을 업데이트할까요?',
+  'This workout didn’t go the way your plan says. Update it to match what you did?': '이번 운동은 플랜과 다르게 진행됐어요. 실제로 한 대로 플랜을 업데이트할까요?',
+  'Added': '추가됨',
+  'Skipped exercises stay in the plan.': '건너뛴 운동은 플랜에 그대로 남아요.',
+  'Update plan': '플랜 업데이트',
+  'Keep the plan as it is': '플랜 그대로 두기',
 }

@@ -2591,4 +2591,11 @@ export default {
   'Just for this phone. Some home screens take a moment to catch up.': 'Csak ezen a telefonon. Néhány kezdőképernyőnek kell egy pillanat, mire észreveszi.',
   'The icon could not be changed.': 'Nem sikerült megváltoztatni az ikont.',
   'Try the Halloween app icon': 'Próbáld ki a halloweeni alkalmazásikont',
+  // --- finishing a workout that strayed from its plan (lib/plan-changes.js) ---
+  'Update your plan?': 'Frissíted a terved?',
+  'This workout didn’t go the way your plan says. Update it to match what you did?': 'Ez az edzés nem úgy ment, ahogy a terved szól. Frissíted, hogy azt mutassa, amit csináltál?',
+  'Added': 'Hozzáadva',
+  'Skipped exercises stay in the plan.': 'A kihagyott gyakorlatok a tervben maradnak.',
+  'Update plan': 'Terv frissítése',
+  'Keep the plan as it is': 'A terv maradjon így',
 }

@@ -14,6 +14,9 @@ import { editCompletedSession } from '../lib/session-edit.js'
 import { lastEntryFor } from '../lib/history.js'
 import { EXDB } from '../lib/exercises.js'
 
+// The workout's Add exercise: the "+" beside the exercise chips, or the button of an empty workout.
+const isAddExercise = b => b.textContent.trim() === 'Add exercise' || b.getAttribute('aria-label') === 'Add exercise'
+
 vi.mock('../lib/sound.js', () => ({ beep: vi.fn(), chime: vi.fn(), vibrate: vi.fn(), alertBuzz: vi.fn(), unlock: vi.fn() }))
 vi.mock('../lib/api.js', () => ({ api: vi.fn(() => Promise.resolve({})), appBase: () => '/' }))
 
@@ -154,7 +157,7 @@ describe('don’t count the whole workout for progression', () => {
   it('an exercise added afterwards joins it', () => {
     renderWorkout([entry(BENCH, 'main', 100)])
     tapHeaderItem()
-    const add = [...container.querySelectorAll('button')].find(b => b.textContent.trim() === 'Add exercise')
+    const add = [...container.querySelectorAll('button')].find(b => isAddExercise(b))
     act(() => add.click())
     const picker = useUI.getState().sheets.at(-1)
     act(() => picker.render(picker.close).props.onPick(EXDB.find(e => e.id === SQUAT), true))
@@ -164,7 +167,7 @@ describe('don’t count the whole workout for progression', () => {
   // #592: the finish summary offers it to the routine, so the add marks it; the planned one is not.
   it('an exercise added to a routine session is marked as added there', () => {
     renderWorkout([entry(BENCH, 'main', 100)])
-    const add = [...container.querySelectorAll('button')].find(b => b.textContent.trim() === 'Add exercise')
+    const add = [...container.querySelectorAll('button')].find(b => isAddExercise(b))
     act(() => add.click())
     const picker = useUI.getState().sheets.at(-1)
     act(() => picker.render(picker.close).props.onPick(EXDB.find(e => e.id === SQUAT), true))
@@ -187,7 +190,7 @@ describe('don’t count the whole workout for progression', () => {
   it('without it, an exercise kept out on its own is not passed on to one added after it', () => {
     renderWorkout([entry(BENCH, 'main', 100, { noProg: true })])
     expect(isOn(headerItem())).toBe(false)
-    const add = [...container.querySelectorAll('button')].find(b => b.textContent.trim() === 'Add exercise')
+    const add = [...container.querySelectorAll('button')].find(b => isAddExercise(b))
     act(() => add.click())
     const picker = useUI.getState().sheets.at(-1)
     act(() => picker.render(picker.close).props.onPick(EXDB.find(e => e.id === SQUAT), true))

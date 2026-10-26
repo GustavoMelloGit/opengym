@@ -2592,4 +2592,11 @@ export default {
   'Just for this phone. Some home screens take a moment to catch up.': 'Только для этого телефона. Некоторым рабочим столам нужна минутка, чтобы заметить.',
   'The icon could not be changed.': 'Не удалось сменить значок.',
   'Try the Halloween app icon': 'Попробуй хеллоуинский значок приложения',
+  // --- finishing a workout that strayed from its plan (lib/plan-changes.js) ---
+  'Update your plan?': 'Обновить план?',
+  'This workout didn’t go the way your plan says. Update it to match what you did?': 'Эта тренировка прошла не по плану. Обновить план под сделанное?',
+  'Added': 'Добавлено',
+  'Skipped exercises stay in the plan.': 'Пропущенные упражнения остаются в плане.',
+  'Update plan': 'Обновить план',
+  'Keep the plan as it is': 'Оставить план как есть',
 }

@@ -2667,4 +2667,11 @@ export default {
   'Just for this phone. Some home screens take a moment to catch up.': 'শুধু এই ফোনের জন্য। কিছু হোম স্ক্রিন বুঝতে একটু সময় নেয়।',
   'The icon could not be changed.': 'আইকন বদলানো গেল না।',
   'Try the Halloween app icon': 'হ্যালোইন অ্যাপ আইকন চেষ্টা করুন',
+  // --- finishing a workout that strayed from its plan (lib/plan-changes.js) ---
+  'Update your plan?': 'প্ল্যান আপডেট করবেন?',
+  'This workout didn’t go the way your plan says. Update it to match what you did?': 'এই ওয়ার্কআউট আপনার প্ল্যান মতো হয়নি। আপনি যা করেছেন সেই অনুযায়ী প্ল্যান আপডেট করবেন?',
+  'Added': 'যোগ হয়েছে',
+  'Skipped exercises stay in the plan.': 'বাদ দেওয়া ব্যায়ামগুলো প্ল্যানে থেকে যাবে।',
+  'Update plan': 'প্ল্যান আপডেট করুন',
+  'Keep the plan as it is': 'প্ল্যান যেমন আছে রাখুন',
 }

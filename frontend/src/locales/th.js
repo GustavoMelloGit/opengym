@@ -2599,4 +2599,11 @@ export default {
   'Just for this phone. Some home screens take a moment to catch up.': 'เฉพาะโทรศัพท์เครื่องนี้ หน้าจอโฮมบางแบบต้องใช้เวลาสักครู่ถึงจะเปลี่ยน',
   'The icon could not be changed.': 'เปลี่ยนไอคอนไม่ได้',
   'Try the Halloween app icon': 'ลองไอคอนแอปฮาโลวีน',
+  // --- finishing a workout that strayed from its plan (lib/plan-changes.js) ---
+  'Update your plan?': 'อัปเดตแผนไหม?',
+  'This workout didn’t go the way your plan says. Update it to match what you did?': 'การออกกำลังกายครั้งนี้ไม่ตรงกับแผน อัปเดตแผนให้ตรงกับที่คุณทำไหม?',
+  'Added': 'เพิ่มแล้ว',
+  'Skipped exercises stay in the plan.': 'ท่าที่ข้ามไปยังคงอยู่ในแผน',
+  'Update plan': 'อัปเดตแผน',
+  'Keep the plan as it is': 'คงแผนไว้ตามเดิม',
 }

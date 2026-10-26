@@ -2588,4 +2588,11 @@ export default {
   'Just for this phone. Some home screens take a moment to catch up.': 'सिर्फ़ इस फ़ोन के लिए। कुछ होम स्क्रीन को समझने में थोड़ा समय लगता है।',
   'The icon could not be changed.': 'आइकन बदला नहीं जा सका।',
   'Try the Halloween app icon': 'हैलोवीन ऐप आइकन आज़माएँ',
+  // --- finishing a workout that strayed from its plan (lib/plan-changes.js) ---
+  'Update your plan?': 'अपना प्लान अपडेट करें?',
+  'This workout didn’t go the way your plan says. Update it to match what you did?': 'यह वर्कआउट आपके प्लान के मुताबिक नहीं हुआ। जो आपने किया उसके हिसाब से प्लान अपडेट करें?',
+  'Added': 'जोड़ा गया',
+  'Skipped exercises stay in the plan.': 'छोड़े गए व्यायाम प्लान में बने रहेंगे।',
+  'Update plan': 'प्लान अपडेट करें',
+  'Keep the plan as it is': 'प्लान जैसा है वैसा रखें',
 }

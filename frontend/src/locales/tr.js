@@ -2588,4 +2588,11 @@ export default {
   'Just for this phone. Some home screens take a moment to catch up.': 'Yalnızca bu telefon için. Bazı ana ekranların fark etmesi biraz sürer.',
   'The icon could not be changed.': 'Simge değiştirilemedi.',
   'Try the Halloween app icon': 'Cadılar Bayramı uygulama simgesini dene',
+  // --- finishing a workout that strayed from its plan (lib/plan-changes.js) ---
+  'Update your plan?': 'Planın güncellensin mi?',
+  'This workout didn’t go the way your plan says. Update it to match what you did?': 'Bu antrenman planındaki gibi gitmedi. Yaptığına göre güncellensin mi?',
+  'Added': 'Eklendi',
+  'Skipped exercises stay in the plan.': 'Atladığın egzersizler planda kalır.',
+  'Update plan': 'Planı güncelle',
+  'Keep the plan as it is': 'Planı olduğu gibi bırak',
 }

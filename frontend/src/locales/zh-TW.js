@@ -2581,4 +2581,11 @@ export default {
   'Just for this phone. Some home screens take a moment to catch up.': '只限這支手機。有些主畫面要過一下才會跟上。',
   'The icon could not be changed.': '無法更換圖示。',
   'Try the Halloween app icon': '試試萬聖節 App 圖示',
+  // --- finishing a workout that strayed from its plan (lib/plan-changes.js) ---
+  'Update your plan?': '更新你的計畫？',
+  'This workout didn’t go the way your plan says. Update it to match what you did?': '這次訓練和計畫不一樣。要照你實際做的更新計畫嗎？',
+  'Added': '已新增',
+  'Skipped exercises stay in the plan.': '跳過的動作仍保留在計畫中。',
+  'Update plan': '更新計畫',
+  'Keep the plan as it is': '保持計畫不變',
 }
