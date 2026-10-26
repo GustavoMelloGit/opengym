@@ -2,43 +2,22 @@
  *
  *   check(cfg, env)                                  → { ok, version?, error? }
  *   invoke({ prompt, jobDir, env, model, timeoutMs }) → { code, text, stderr, timedOut, spawnError }
+ *   spawns                                             true when a job runs a child process
+ *
+ * `spawns` decides whether the privilege drop is required before a job may run. The three
+ * runtime-backed adapters say true; the HTTPS ones in ../core/adapters say false, because a
+ * fetch has no process to drop privileges on and must not be refused for lacking one.
  *
  * Adding a provider is a file here plus a row in config.PROVIDERS. Nothing else in the
  * codebase — routes, jobs, payload, validation, UI — knows which one is configured.
  */
 import { run } from './spawn.js';
 import claude from './claude.js';
-import { CODEX_BIN } from './codex-cli.js';
-
-const CODEX_DISABLED_FEATURES = [
-  'auth_elicitation', 'shell_tool', 'unified_exec', 'shell_snapshot', 'browser_use',
-  'browser_use_external', 'browser_use_full_cdp_access', 'in_app_browser', 'computer_use',
-  'apps', 'plugins', 'plugin_sharing', 'remote_plugin', 'multi_agent', 'skill_search',
-  'skill_mcp_dependency_install', 'workspace_dependencies', 'image_generation', 'hooks',
-  'code_mode_host', 'tool_suggest'
-];
-
-/** OpenAI Codex CLI — `exec` is the headless subcommand. */
-const codex = {
-  id: 'codex',
-  cli: CODEX_BIN,
-  async check(cfg, env) {
-    const r = await run(CODEX_BIN, ['--version'], { env, timeoutMs: 20000 });
-    if (r.spawnError) return { ok: false, error: 'the Codex CLI is not installed in this container' };
-    return r.code === 0 ? { ok: true, version: (r.stdout || '').trim().split('\n')[0] } : { ok: false, error: (r.stderr || '').trim().slice(0, 200) };
-  },
-  async invoke({ prompt, jobDir, env, model, timeoutMs }) {
-    // The managed config grants spawned commands read access only to this job directory and
-    // minimal runtime files; it explicitly denies /codex, where Codex itself keeps its auth
-    // cache. Keep sessions ephemeral and ignore project-level exec rules. The prompt is data on
-    // stdin, never a shell argument.
-    const argv = ['exec', '--strict-config', '--skip-git-repo-check', '--ephemeral', '--ignore-rules', '-c', 'cli_auth_credentials_store="file"'];
-    for (const feature of CODEX_DISABLED_FEATURES) argv.push('--disable', feature);
-    if (model) argv.push('-m', model);
-    const r = await run(CODEX_BIN, argv, { stdin: prompt, env, cwd: jobDir, timeoutMs });
-    return { ...r, text: (r.stdout || '').trim() };
-  }
-};
+import codex from './codex.js';
+import anthropic from '../core/adapters/anthropic.js';
+import openai from '../core/adapters/openai.js';
+import gemini from '../core/adapters/gemini.js';
+import compatible from '../core/adapters/compatible.js';
 
 /**
  * The in-repo fake provider. Ships with the image on purpose: it is what CI drives, and it
@@ -48,6 +27,7 @@ const codex = {
 const FIXTURE = new URL('../fixture-cli.mjs', import.meta.url).pathname;
 const fixture = {
   id: 'fixture',
+  spawns: true,
   cli: process.execPath,
   async check() { return { ok: true, version: 'fixture' }; },
   async invoke({ prompt, jobDir, env, timeoutMs }) {
@@ -61,6 +41,10 @@ const fixture = {
   }
 };
 
-const ADAPTERS = { claude, codex, fixture };
+/* claude is registered unconditionally, and that is safe because claude.js imports the SDK
+   lazily: on the default image the module loads, check() reports the runtime as absent, and
+   isConnected() keeps the Coach out of /api/config entirely. Codex is here too, and unlike
+   the SDK its runtime is a CLI binary, so its absence shows up as a spawn error from check(). */
+const ADAPTERS = { fixture, claude, codex, anthropic, openai, gemini, compatible };
 export const adapterFor = provider => ADAPTERS[provider] || null;
 export default ADAPTERS;

@@ -2,6 +2,8 @@
 
 Read `window` (what they actually did), `aggregates` (stalls, adherence, coverage), `bodyweight`, and `userNote` if present. Then decide whether the **plan** should change.
 
+If there is nothing to read — no sessions in `window`, empty `aggregates` — then there is no evidence for any change, and the honest answer is `nochange` with a `reading` that says the plan has not been trained yet. Do not invent a reason to change something.
+
 ## How to decide
 
 Change something when the data says so:
@@ -12,10 +14,12 @@ Change something when the data says so:
 - A body part with no work in the window while others get plenty — add something, or rebalance.
 - Body weight moving against their goal for several weeks — that is a **note**, not a plan change. Say it plainly and leave the plan alone.
 
+**One session is not a trend.** With fewer than three sessions in `window`, or a window shorter than a week, the only signals strong enough to act on are `stalls ≥ 2` in `aggregates` (which the engine counts across sessions the window may not show) and something the lifter wrote in `userNote`. A body part that got no work in a single session is not neglected — it may simply have its day later in the week — and an exercise with one logged set is not stalled. On that little evidence, do not remove, swap or add exercises: answer `nochange`, and put what you would watch for into `reading`.
+
 **Change nothing when nothing warrants it.** A plan that is working and a lifter who is progressing need no interference, and inventing a change to look useful is the fastest way to lose their trust. In that case answer:
 
 ```
-{ "coach_contract": 1, "nochange": true, "reading": "<a short honest paragraph on how the block went>" }
+{ "coach_contract": 1, "nochange": true, "reading": "<a short honest paragraph on how the block went>", "changes": [] }
 ```
 
 Prefer few, high-conviction changes over many small ones. Never propose more than about six.
@@ -51,6 +55,7 @@ Prefer few, high-conviction changes over many small ones. Never propose more tha
 | `sets` | `routineId`, `exId` | whole number 1–10 |
 | `reps` | `routineId`, `exId` | whole number 1–100 |
 | `repsMin` | `routineId`, `exId` | whole number 1–100 |
+| `repsMax` | `routineId`, `exId` | whole number 1–100, not below `repsMin` |
 | `sec` | `routineId`, `exId` | seconds 5–3600 |
 | `cardio` | `routineId`, `exId` | `{ min?, speed? }` |
 | `reorder` | `routineId` | array of every existing `exId` in the new order |
@@ -62,5 +67,12 @@ Prefer few, high-conviction changes over many small ones. Never propose more tha
 | `remove-routine` | `routineId` | `null` |
 | `rename-routine` | `routineId` | new name |
 | `week` | `weekday` | routine id, `"rest"`, or `null` |
+
+Every change that names an exercise has to agree with the plan as it stands:
+
+- `target.exId` must be an exercise of `target.routineId` — one of that routine's own `plan.routines[].ex[].id`, not an exercise from another routine.
+- The `after.id` of a `swap-exercise` or `add-exercise` must **not already be in** that routine. Check the routine's `ex[].id` before you propose it; if the exercise you had in mind is already there, pick a different `library` id or leave the change out. Two changes may not bring the same exercise into one routine either.
+
+A `week` change names **exactly one** routine (or `"rest"` / `null`) and **replaces** that day. You can move a day's routine, but you cannot build a combined day. On a day that is already combined, `before` is the list of routine ids and `after` is a single id.
 
 `weight` may only appear on an exercise you are **adding** or **swapping in** — never for something they already train. Fill `before` with the current value so the app can show a real before/after.

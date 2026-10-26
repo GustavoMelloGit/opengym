@@ -12,20 +12,34 @@
  * up, cannot run forever, and cannot lie about what happened when the container restarts.
  */
 import fs from 'node:fs';
+import { spawnSync } from 'node:child_process';
 import os from 'node:os';
 import path from 'node:path';
 import crypto from 'node:crypto';
-import { fileURLToPath } from 'node:url';
 import * as cfgStore from './config.js';
 import { adapterFor } from './adapters/index.js';
-import * as payloadLib from './payload.js';
-import { extractJSON, validatePlan, validateReview, contractOK } from './validate.js';
+import * as payloadLib from './core/payload.js';
+import { runPipeline } from './core/pipeline.js';
+import { extractJSON } from './core/parse.js';
+import { hashPlan } from './core/plan-hash.js';
+import { buildPrompt } from './core/prompt.js';
+import { waitingProposal } from './core/pending.js';
+import { handleFor } from './handle.js';
+import { fetchFor } from './node-fetch.js';
+import { privilegeRefusal, unprivilegedIds } from './adapters/spawn.js';
+import { cohortForPayload, invalidate as invalidateCohort } from './cohort.js';
+
+// The prompt assembly, the plan fingerprint and the invoke→parse→validate→repair loop all
+// live in ./core now, where the phone can import them too. Re-exported so nothing that
+// reached them through this module has to move.
+export { hashPlan, buildPrompt };
 
 const DATA = process.env.DATA_DIR || '/data';
 const COACH_DIR = path.join(DATA, 'coach');
-const PROMPTS = path.join(path.dirname(fileURLToPath(import.meta.url)), 'prompts');
 
-export const TIMEOUT_MS = 5 * 60000;
+// Five minutes by default. A local model on a small CPU box can legitimately need more; a
+// cloud API that needs more has a problem. COACH_JOB_TIMEOUT_MS overrides, never below one minute.
+export const TIMEOUT_MS = Math.max(60000, +process.env.COACH_JOB_TIMEOUT_MS || 5 * 60000);
 const MAX_CONCURRENT = 2;          // these are minutes-scale jobs on often-single-core boxes
 const PENDING_DAYS = 14;           // FR-33
 const HISTORY_MAX = 20;
@@ -51,9 +65,40 @@ function patchUser(uid, patch) {
   writeUser(uid, rec);
   return rec;
 }
-/** Consent revoked, profile deleted, "reset everything" — no server-side residue (FR-51). */
+/** Consent revoked, profile deleted, "reset everything" — no server-side residue (FR-51).
+ *  Today's job count is the one thing that stays: it is the spending record the daily cap
+ *  reads, not the profile's data, and forgetting must not hand out a fresh cap; the record
+ *  outlives the day only until the next job or forget touches it, and counts for nothing once
+ *  the date has passed. A job still waiting in the queue is dropped here; one already mid-call
+ *  is cancelled where the adapter can be (the HTTP ones — a spawned runtime runs to its end),
+ *  and either way finishes without writing anything back (see finish). */
 export function clearUser(uid) {
+  const { daily } = readUser(uid);
   try { fs.unlinkSync(userFile(uid)); } catch { /* nothing to clear */ }
+  if (daily?.date === todayISO()) writeUser(uid, { ...EMPTY, daily });
+  const queued = queue.findIndex(j => j.uid === uid);
+  if (queued >= 0) { queue.splice(queued, 1); inflight.delete(uid); }
+  aborts.get(uid)?.abort();
+  forgetSeq.set(uid, (forgetSeq.get(uid) || 0) + 1);
+  invalidateCohort();
+}
+
+/** Every profile with a state file — the population a cohort is drawn from. */
+export function listUserIds() {
+  try {
+    return fs.readdirSync(DATA).filter(f => /^state-[a-zA-Z0-9_-]+\.json$/.test(f)).map(f => f.slice(6, -5));
+  } catch { return []; }
+}
+
+/* ---------- "compare with others" opt-in ----------
+   Held here, in the server's own per-profile record, rather than in the synced state: the
+   flag decides whether this person's numbers reach other people, and a stale device syncing
+   an older copy of S must not be able to flip it back on. */
+export const isSharing = uid => !!readUser(uid).share;
+export function setShare(uid, share) {
+  patchUser(uid, { share: !!share });
+  invalidateCohort();
+  return !!share;
 }
 
 export function readState(uid) {
@@ -77,9 +122,16 @@ export function capState(uid) {
   const used = rec.daily?.date === todayISO() ? rec.daily.count : 0;
   return { used, limit: caps.perProfileDaily || 0 };
 }
-function instanceUsedToday() {
+// The instance-wide count is kept the same way in coach.json, not read off the job log: the
+// log keeps its last hundred entries, and a count that stops at a hundred is not a cap.
+function bumpInstanceDaily() {
+  const cur = cfgStore.load().daily;
   const d = todayISO();
-  return (cfgStore.load().log || []).filter(e => (e.at || '').slice(0, 10) === d).length;
+  cfgStore.save({ daily: cur?.date === d ? { date: d, count: cur.count + 1 } : { date: d, count: 1 } });
+}
+function instanceUsedToday() {
+  const daily = cfgStore.load().daily;
+  return daily?.date === todayISO() ? daily.count : 0;
 }
 
 /* ---------- status ---------- */
@@ -89,13 +141,22 @@ export function status(uid) {
   const rec = readUser(uid);
   if (rec.pending && rec.pending.expiresAt && rec.pending.expiresAt < Date.now()) {
     archive(uid, rec, 'expired');
-    return { job: null, pending: null };
+    // Same shape as every other answer: the poll that happens to be the one which expires a
+    // proposal must not be the one where the client's cap readout goes undefined.
+    return { job: null, pending: null, cap: capState(uid) };
   }
   return {
     job: rec.current ? { id: rec.current.id, kind: rec.current.kind, state: rec.current.state, startedAt: rec.current.startedAt } : null,
     pending: rec.pending || null,
-    cap: capState(uid)
+    cap: capState(uid),
+    // How the most recent job ended, so the chat can say "nothing to change" or "that failed"
+    // in the Coach's own bubble rather than leaving a job that silently stopped appearing.
+    last: lastOutcome(rec)
   };
+}
+function lastOutcome(rec) {
+  const h = (rec.history || []).at(-1);
+  return h ? { id: h.id, kind: h.kind, outcome: h.outcome, errorClass: h.errorClass || null, at: h.at, ...(h.trigger === 'scheduled' ? { trigger: 'scheduled' } : {}), ...(h.reading ? { reading: h.reading } : {}) } : null;
 }
 function archive(uid, rec, outcome) {
   const history = [...(rec.history || []), {
@@ -109,11 +170,26 @@ function archive(uid, rec, outcome) {
 const queue = [];
 let running = 0;
 const inflight = new Set();     // uids with a job queued or running (FR-07 single-flight)
+const forgetSeq = new Map();    // uid → bumped by every clearUser; a job carries the value it saw at enqueue
+const aborts = new Map();       // uid → AbortController of the provider call in flight, for clearUser to pull
 
 class CoachError extends Error {
   constructor(code, message) { super(message); this.code = code; }
 }
 export { CoachError };
+
+/**
+ * Clamp a free-text note/refine message to the admin's configured `maxMessageLen` (issue #267).
+ * The one place this is enforced — `routes.js` only applies a generous sanity ceiling before a
+ * string reaches here, and `payload.js`'s own bound exists purely so a caller that skips this
+ * module (coach-local.js's in-process pipeline) still has a limit. Exported so the clamp itself
+ * is directly testable without walking the whole enqueue → execute pipeline.
+ */
+export function clampMessage(text) {
+  if (!text) return null;
+  const max = cfgStore.load().maxMessageLen || 1000;
+  return String(text).slice(0, max);
+}
 
 /**
  * Enqueue a job. Throws CoachError with a code the routes layer maps to an HTTP status:
@@ -128,24 +204,52 @@ export function enqueue(uid, opts) {
   // is not a gate (FR-08/13).
   if (!S?.coach?.consent?.agreedAt) throw new CoachError('consent', 'the Coach needs your go-ahead first');
 
+  // Whose account pays. In instance mode the credential binds to the first profile that spends
+  // it and every other profile is refused outright — not warned. A warning would move the
+  // decision onto whoever clicks past it, and the decision is about spending somebody else's
+  // personal subscription.
+  const cred = cfgStore.credentialFor(uid);
+  if (!cred.ok) {
+    if (cred.reason === 'shared-account') throw new CoachError('shared', cred.message);
+    throw new CoachError('off', 'this profile has no provider account connected');
+  }
+  // The privilege drop is what keeps a provider runtime out of ./data. If it cannot be
+  // performed, there is no job — see canDropPrivileges for why this is not a warning either.
+  // A provider that spawns nothing has no process to drop, and is not refused for it.
+  // Asked before the bind below: a job refused here spends nothing, so it must not bind.
+  const refusal = privilegeRefusal(adapterFor(cfgStore.load().provider));
+  if (refusal) throw new CoachError('unprivileged', refusal);
+
+  // The caps, before the bind for the same reason: a job refused for the day spends nothing.
   const caps = cfgStore.load().caps || {};
   const { used, limit } = capState(uid);
   if (limit > 0 && used >= limit) throw new CoachError('cap', 'daily limit reached');
   if (caps.instanceDaily > 0 && instanceUsedToday() >= caps.instanceDaily) throw new CoachError('cap', 'this instance has reached its daily limit');
 
+  // Spending is what binds: a personal credential (setup token, OAuth) belongs to the first
+  // profile that runs a job on it from here on; an API key binds to nobody and is shared.
+  cfgStore.bindInstanceCredential(uid);
+
   // Counted at enqueue, not at completion: the cap exists to bound what one profile can spend
   // of the owner's provider account, and queueing twenty jobs spends it whether or not the
   // twentieth ever finishes.
   bumpDaily(uid);
+  bumpInstanceDaily();
 
   const job = {
     id: crypto.randomBytes(8).toString('hex'),
     uid,
-    kind: opts.kind,                                  // 'create' | 'review'
+    forgetSeq: forgetSeq.get(uid) || 0,
+    kind: opts.kind,                                  // 'create' | 'review' | 'debrief' | 'ask'
     trigger: opts.trigger || 'manual',                // 'manual' | 'scheduled'
+    workoutId: opts.workoutId ? String(opts.workoutId).slice(0, 40) : null,
     intake: opts.intake || null,
-    note: opts.note || null,
-    refine: opts.refine || null,
+    note: clampMessage(opts.note),
+    refine: clampMessage(opts.refine),
+    // A question's running session, sent by the phone (the server never holds `active`). Kept on
+    // the in-memory job only, never in the user's file; the payload builder bounds it.
+    today: opts.kind === 'ask' && opts.today && typeof opts.today === 'object' ? opts.today : null,
+    lang: payloadLib.langTag(opts.lang),              // the language the app was showing (#303)
     state: 'queued',
     startedAt: Date.now()
   };
@@ -166,22 +270,39 @@ function pump() {
   }
 }
 
+/* Why an answer was rejected, for the admin card. "Couldn't use" with no reason left people
+   guessing whether the model, the key or the app was at fault. The validator's own lines say
+   which rule broke; quoted values are cut out, because they can carry a routine name or other
+   words from the person's plan, and the instance log carries outcomes, not content (FR-12/42). */
+export function whyUnusable(errors) {
+  if (!Array.isArray(errors) || !errors.length) return null;
+  return errors.slice(0, 3).map(e => String(e).replace(/"[^"]*"/g, '"…"')).join('; ').slice(0, 300);
+}
+
 function finish(job, result) {
+  cfgStore.logJob({
+    at: new Date().toISOString(), uid: job.uid, kind: job.kind, trigger: job.trigger,
+    outcome: result.outcome, errorClass: result.errorClass || null,
+    ms: Date.now() - job.startedAt, detail: result.detail || null
+  });
+  // Forgotten while it ran: the record is gone and stays gone, and nobody is notified. The
+  // job still ran and still spent, which is why the instance log above keeps its line.
+  if ((forgetSeq.get(job.uid) || 0) !== job.forgetSeq) return;
   const rec = readUser(job.uid);
   const history = [...(rec.history || []), {
     id: job.id, kind: job.kind, trigger: job.trigger, outcome: result.outcome,
-    errorClass: result.errorClass || null, at: Date.now()
+    errorClass: result.errorClass || null, at: Date.now(),
+    // "Nothing to change" is an answer with a reason attached, and throwing the reason away
+    // leaves the user with a job that finished and nothing to show for it. It lives here, in
+    // the profile's own file — deliberately not in `detail`, which goes to the instance log
+    // the admin card renders, and which carries counts and outcomes only (FR-12/42).
+    ...(result.reading ? { reading: String(result.reading).slice(0, 1200) } : {})
   }].slice(-HISTORY_MAX);
   writeUser(job.uid, {
     ...rec,
     current: null,
     pending: result.pending !== undefined ? result.pending : rec.pending,
     history
-  });
-  cfgStore.logJob({
-    at: new Date().toISOString(), uid: job.uid, kind: job.kind, trigger: job.trigger,
-    outcome: result.outcome, errorClass: result.errorClass || null,
-    ms: Date.now() - job.startedAt, detail: result.detail || null
   });
   if (result.outcome === 'ready' && onProposal) {
     try { onProposal(job.uid, result.pending, job); } catch (e) { console.error('coach notify failed', e); }
@@ -193,25 +314,6 @@ function finish(job, result) {
 let onProposal = null;
 export function setProposalHook(fn) { onProposal = fn; }
 
-/* ---------- prompt assembly ---------- */
-
-const promptCache = new Map();
-function promptPart(name) {
-  if (!promptCache.has(name)) promptCache.set(name, fs.readFileSync(path.join(PROMPTS, name), 'utf8'));
-  return promptCache.get(name);
-}
-export function buildPrompt(kind, payload, repair) {
-  const task = kind === 'review' ? 'review.md' : payload.refine ? 'refine.md' : 'create.md';
-  let out = promptPart('common.md') + '\n\n---\n\n' + promptPart(task) +
-    '\n\n---\n\n## Payload\n\n```json\n' + JSON.stringify(payload, null, 1) + '\n```\n';
-  if (repair) {
-    out += '\n\n---\n\n' + promptPart('repair.md')
-      .replace('{{PREVIOUS}}', String(repair.previous || '').slice(0, 4000))
-      .replace('{{ERRORS}}', repair.errors.map(e => '- ' + e).join('\n'));
-  }
-  return out;
-}
-
 /* ---------- execution ---------- */
 
 async function execute(job) {
@@ -219,39 +321,71 @@ async function execute(job) {
 
   const S = readState(job.uid);
   if (!S) return finish(job, { outcome: 'failed', errorClass: 'nostate' });
+  // Checked again here, not only at enqueue: a job can wait behind two others, and consent
+  // withdrawn or the Coach switched off in the meantime means no payload leaves for it.
+  if (!S.coach?.consent?.agreedAt) return finish(job, { outcome: 'failed', errorClass: 'consent' });
+  if (!cfgStore.isEnabled()) return finish(job, { outcome: 'failed', errorClass: 'off' });
 
   const cfg = cfgStore.load();
   const adapter = adapterFor(cfg.provider);
   if (!adapter) return finish(job, { outcome: 'failed', errorClass: 'off' });
+  // The gate again, for the provider this job actually runs on: enqueue asked about the one
+  // configured then, and a job that waited behind two others would otherwise spawn without the
+  // drop if the admin had switched from an HTTPS provider to a runtime-backed one meanwhile.
+  const refusal = privilegeRefusal(adapter);
+  if (refusal) return finish(job, { outcome: 'failed', errorClass: 'unprivileged', detail: refusal });
+
+  if (job.kind === 'debrief' && !payloadLib.findWorkout(S, job.workoutId)) {
+    return finish(job, { outcome: 'failed', errorClass: 'noworkout' });
+  }
 
   const pendingCreate = job.refine ? readUser(job.uid).pending : null;
-  const payload = payloadLib.build(S, job.uid, {
+  const payload = payloadLib.build(S, {
+    handle: handleFor(job.uid),
     kind: job.kind,
     intake: job.intake,
     note: job.note,
     refine: job.refine,
-    previous: pendingCreate?.bundle || null
+    previous: pendingCreate?.bundle || null,
+    workoutId: job.workoutId,
+    today: job.today,
+    // The app says which language it is in. A scheduled review has no app behind it: a profile
+    // that never picked a language then gets the instance's DEFAULT_LANG, like its screens do.
+    lang: job.lang || (S.langAuto === true ? payloadLib.langTag(process.env.DEFAULT_LANG) : null),
+    // The room's medians ride along on a review or a debrief when the admin allows it and
+    // this person opted in; null otherwise, and the payload then carries no `cohort` at all.
+    cohort: (job.kind === 'review' || job.kind === 'debrief') ? cohortForPayload(job.uid) : null
   });
+  // The payload is paid for with the instance's key, and it is built from state the client
+  // wrote. The builder bounds each field; a payload that is still bigger than any real training
+  // history makes is refused here, before a provider is called, rather than sent and billed.
+  const size = JSON.stringify(payload).length;
+  if (size > payloadLib.MAX_PAYLOAD_CHARS) {
+    return finish(job, { outcome: 'failed', errorClass: 'toolarge', detail: `payload of ${Math.round(size / 1000)}k characters` });
+  }
 
-  const jobDir = fs.mkdtempSync(path.join(os.tmpdir(), 'coach-'));
-  const env = cfgStore.jobEnv(jobDir);
+  // An HTTPS provider has no child process, so no directory for one to live in either.
+  const jobDir = adapter.spawns === false ? null : fs.mkdtempSync(path.join(os.tmpdir(), 'coach-'));
+  const env = cfgStore.jobEnv(jobDir || os.tmpdir(), cfgStore.credentialFor(job.uid));
+  const ctl = new AbortController();
+  aborts.set(job.uid, ctl);
   try {
-    const ids = (await import('./adapters/spawn.js')).unprivilegedIds();
-    if (ids) fs.chownSync(jobDir, ids.uid, ids.gid);
+    const ids = jobDir && unprivilegedIds();
+    if (ids) shareJobDir(jobDir, ids);
 
-    let attempt = await invoke(adapter, cfg, payload, jobDir, env, job, null);
-    if (!attempt.ok && attempt.repairable) {
-      // One repair round, then done (FR-48). Two failures is a provider problem, not a
-      // prompting problem, and a retry loop against a paid API is a bad way to find out.
-      attempt = await invoke(adapter, cfg, payload, jobDir, env, job, {
-        previous: attempt.raw, errors: attempt.errors
-      });
-    }
+    const attempt = await runPipeline({
+      adapter, cfg, kind: job.kind, payload, model: cfgStore.modelFor(cfg), timeoutMs: TIMEOUT_MS,
+      // The HTTP adapters take the fetch and the abort signal they are given; the runtime
+      // adapters ignore both.
+      invokeOpts: { jobDir, env, fetch: fetchFor(TIMEOUT_MS), signal: ctl.signal, maxTokens: cfg.maxOutputTokens }
+    });
     if (!attempt.ok) {
-      return finish(job, { outcome: 'failed', errorClass: attempt.errorClass, detail: attempt.detail });
+      // Cancelled by a forget, not failed by the provider: the log must not blame the job budget.
+      const errorClass = ctl.signal.aborted ? 'forgotten' : attempt.errorClass;
+      return finish(job, { outcome: 'failed', errorClass, detail: attempt.detail || whyUnusable(attempt.errors) });
     }
     if (attempt.nochange) {
-      return finish(job, { outcome: 'nochange', pending: null, detail: null });
+      return finish(job, { outcome: 'nochange', pending: null, detail: null, reading: attempt.reading });
     }
     const pending = {
       id: job.id,
@@ -260,61 +394,19 @@ async function execute(job) {
       expiresAt: Date.now() + PENDING_DAYS * 86400000,
       planHash: hashPlan(payloadLib.canonicalPlan(S)),
       iteration: job.refine ? (pendingCreate?.iteration || 1) + 1 : 1,
+      // Nobody asked for a scheduled one, so nobody is watching for it: a phone app has no web
+      // push, and says so itself when it next comes to the foreground (lib/coach-schedule.js).
+      ...(job.trigger === 'scheduled' ? { trigger: 'scheduled' } : {}),
+      // A debrief names the session it read, so the card can show it after the fact.
+      ...(job.kind === 'debrief' ? { workout: payloadLib.workoutMeta(S, job.workoutId) } : {}),
+      ...(job.kind === 'ask' ? { prev: waitingProposal(readUser(job.uid).pending) } : {}),
       ...attempt.result
     };
     return finish(job, { outcome: 'ready', pending });
   } finally {
-    fs.rmSync(jobDir, { recursive: true, force: true });
+    aborts.delete(job.uid);
+    if (jobDir) removeJobDir(jobDir, unprivilegedIds());
   }
-}
-
-async function invoke(adapter, cfg, payload, jobDir, env, job, repair) {
-  const prompt = buildPrompt(job.kind, payload, repair);
-  const r = await adapter.invoke({ cfg, prompt, jobDir, env, model: cfg.model || null, timeoutMs: TIMEOUT_MS });
-
-  if (r.timedOut) return { ok: false, errorClass: 'timeout' };
-  if (r.spawnError) return { ok: false, errorClass: 'missing', detail: r.stderr?.slice(0, 300) };
-  if (r.code !== 0) {
-    const err = (r.stderr || r.text || '').toLowerCase();
-    const authish = /auth|unauthor|api key|credential|token|401|403|login/.test(err);
-    return { ok: false, errorClass: authish ? 'auth' : 'provider', detail: (r.stderr || r.text || '').slice(0, 300) };
-  }
-
-  const parsed = extractJSON(r.text);
-  if (parsed.error) return { ok: false, repairable: !repair, errors: [parsed.error], raw: r.text, errorClass: 'unusable' };
-  if (!contractOK(parsed.value)) {
-    return { ok: false, repairable: !repair, errors: [`coach_contract must be ${payloadLib.CONTRACT}`], raw: r.text, errorClass: 'unusable' };
-  }
-
-  const v = job.kind === 'review'
-    ? validateReview(parsed.value, payload.plan)
-    : validatePlan(parsed.value, { workingWeights: payload.history?.workingWeights, daysPerWeek: payload.coachProfile?.daysPerWeek });
-
-  if (!v.ok) return { ok: false, repairable: !repair, errors: v.errors, raw: r.text, errorClass: 'unusable' };
-  if (v.nochange) return { ok: true, nochange: true, reading: v.reading };
-  return { ok: true, result: v.proposal ? v.proposal : { bundle: v.bundle, summary: v.bundle.summary } };
-}
-
-/**
- * Fingerprint of the plan a proposal was computed against (FR-32). Takes the output of
- * `canonicalPlan`, so both runtimes hash the same normalised shape; the client mirrors this
- * function exactly. A mismatch therefore means the plan genuinely moved — not that two
- * implementations disagree about key order or about what "no weight" looks like.
- */
-export function hashPlan(plan) {
-  const canon = JSON.stringify({
-    routines: (plan?.routines || []).map(r => [r.id, r.name, r.prog, (r.ex || []).map(e =>
-      [e.id, e.mode, e.sets, e.reps, e.sec, e.min, e.speed, e.weight, e.prog, e.inc, e.repsMin, e.sg].join(':')
-    )]),
-    week: Object.keys(plan?.week || {}).sort().map(k => k + '=' + plan.week[k])
-  });
-  let h1 = 0x811c9dc5, h2 = 0x01000193;
-  for (let i = 0; i < canon.length; i++) {
-    const c = canon.charCodeAt(i);
-    h1 = Math.imul(h1 ^ c, 0x01000193) >>> 0;
-    h2 = Math.imul(h2 ^ ((c << 3) | i & 7), 0x85ebca6b) >>> 0;
-  }
-  return h1.toString(16).padStart(8, '0') + h2.toString(16).padStart(8, '0');
 }
 
 /* ---------- decisions ---------- */
@@ -328,26 +420,79 @@ export function resolvePending(uid, { accepted = [], rejected = [], dismissed = 
     outcome: dismissed ? 'dismissed' : 'applied',
     accepted: accepted.length, rejected: rejected.length, at: Date.now()
   }].slice(-HISTORY_MAX);
-  writeUser(uid, { ...rec, pending: null, history });
+  // A read answer gives back the proposal it was asked beside (core/pending.js).
+  const back = rec.pending.kind === 'ask' ? waitingProposal(rec.pending.prev) : null;
+  writeUser(uid, { ...rec, pending: back, history });
   return { ok: true };
 }
+
 
 /* ---------- admin test + boot recovery ---------- */
 
 /** A2's "Test the Coach": the real adapter, a trivial round-trip, no user data anywhere near it. */
+/* Give the unprivileged `coach` user its job directory without locking this process out of it.
+ *
+ * The obvious move is chown(jobDir, coach) — and it breaks the spawn outright. libuv chdir()s
+ * into cwd BEFORE it drops to the child's uid, so the parent still has to be able to enter the
+ * directory it just gave away; mkdtemp creates 0700, and a container started with `drop: [ALL]`
+ * has no CAP_DAC_OVERRIDE for root to ignore that with. The child never starts and node reports
+ * EACCES, which the Agent SDK renders as "the native binary failed to launch … does not match
+ * this system's libc" — a guess, and a misleading one.
+ *
+ * So the directory stays owned by this process and `coach` reaches it through the group: 0770
+ * with the coach gid. The child can write, the parent can still chdir and still clean up
+ * afterwards, and nobody else on the container can read it. chmod before chown, while this
+ * process is still the owner — CAP_FOWNER is not in the capability set either.
+ */
+function shareJobDir(jobDir, ids) {
+  fs.chmodSync(jobDir, 0o770);
+  fs.chownSync(jobDir, process.getuid ? process.getuid() : 0, ids.gid);
+}
+
+/* Remove a job directory whose contents belong to somebody else.
+ *
+ * The child writes as `coach` and its own directories come out 0700/0755 coach-owned — this
+ * process cannot unlink inside them without CAP_DAC_OVERRIDE, which is the same capability the
+ * handover above is written to avoid needing. Left to `fs.rmSync` it throws EACCES from a
+ * `finally`, turning a completed run into a failed one.
+ *
+ * So the child's user clears its own files, and this process removes the directory it still
+ * owns. Best effort throughout: a leaked temp directory is a worse outcome than a failed job
+ * only in the sense that it is not one.
+ */
+function removeJobDir(jobDir, ids) {
+  if (ids) {
+    try {
+      const mine = fs.readdirSync(jobDir).map(n => path.join(jobDir, n));
+      // argv array, no shell — the same rule the provider spawn follows, and these paths are
+      // this module's own mkdtemp output rather than anything a user chose.
+      if (mine.length) spawnSync('/bin/rm', ['-rf', ...mine], { uid: ids.uid, gid: ids.gid, stdio: 'ignore' });
+    } catch { /* fall through: the removal below is still worth attempting */ }
+  }
+  try { fs.rmSync(jobDir, { recursive: true, force: true }); } catch { /* leaked, not fatal */ }
+}
+
 export async function testRun() {
   const cfg = cfgStore.load();
   const adapter = adapterFor(cfg.provider);
   if (!adapter) return { ok: false, error: 'no provider configured' };
-  const jobDir = fs.mkdtempSync(path.join(os.tmpdir(), 'coach-test-'));
-  const env = cfgStore.jobEnv(jobDir);
+  // The same gate as enqueue: this spawns the runtime a job would, and without the drop the
+  // child runs as this process and can read ./data.
+  const refusal = privilegeRefusal(adapter);
+  if (refusal) return { ok: false, error: refusal };
+  const jobDir = adapter.spawns === false ? null : fs.mkdtempSync(path.join(os.tmpdir(), 'coach-test-'));
   try {
-    const ids = (await import('./adapters/spawn.js')).unprivilegedIds();
-    if (ids) fs.chownSync(jobDir, ids.uid, ids.gid);
+    // No user asked for this, so there is no profile whose account is being spent. In instance
+    // mode that is the bound profile's credential — the one the round-trip is meant to prove —
+    // and in per-profile mode it is nobody's, which is the honest answer: an admin cannot test
+    // a credential that belongs to a profile.
+    const env = cfgStore.jobEnv(jobDir || os.tmpdir(), cfgStore.credentialFor(cfgStore.boundUidFor(cfg)));
+    const ids = jobDir && unprivilegedIds();
+    if (ids) shareJobDir(jobDir, ids);
     const check = await adapter.check(cfg, env);
     if (!check.ok) return { ok: false, error: check.error || 'the provider runtime could not be run' };
     const r = await adapter.invoke({
-      cfg, jobDir, env, model: cfg.model || null, timeoutMs: 90000,
+      cfg, jobDir, env, model: cfgStore.modelFor(cfg), timeoutMs: 90000, fetch: fetchFor(90000),
       prompt: 'Reply with exactly this JSON object and nothing else: {"coach_contract":1,"ok":true}'
     });
     if (r.timedOut) return { ok: false, version: check.version, error: 'the provider did not answer in time' };
@@ -361,7 +506,7 @@ export async function testRun() {
     }
     return { ok: true, version: check.version };
   } finally {
-    fs.rmSync(jobDir, { recursive: true, force: true });
+    if (jobDir) removeJobDir(jobDir, unprivilegedIds());
   }
 }
 

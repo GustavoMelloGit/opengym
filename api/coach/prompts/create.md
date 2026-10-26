@@ -4,7 +4,7 @@ Design a complete plan from `coachProfile` (their intake answers) and, if presen
 
 ## Constraints
 
-- Schedule exactly `coachProfile.daysPerWeek` training days. Use `preferredDays` when given (0 = Sunday … 6 = Saturday).
+- Schedule exactly `coachProfile.daysPerWeek` training days. `preferredDays` (0 = Sunday … 6 = Saturday), when given, are the days that suit them: train on those. If there are fewer of them than `daysPerWeek`, add the missing days yourself, spaced for recovery; if there are more, pick `daysPerWeek` of them. The count always wins.
 - Fit `coachProfile.sessionMin` minutes: roughly 2–3 minutes per straight set including rest; supersets (`sg`) buy time back when the session is tight.
 - Only exercises from `library`. Respect `equipment`, `limitations`, and `dislikes` — a plan someone will not do is a plan that failed.
 - If `history.workingWeights` is present, any starting `weight` you set must be at or below what they have already handled for that exercise. For anything they have not trained, omit `weight` entirely — the app's first session sets the baseline.
@@ -24,7 +24,7 @@ Design a complete plan from `coachProfile` (their intake answers) and, if presen
     {
       "id": "r1",
       "name": "<routine name>",
-      "emoji": "<one emoji>",
+      "emoji": "<one icon: figureStrength, arm, abs, legs, pullup, dumbbell, barbell, kettlebell, plate, machine, figureRun, bike, swim, boxing, timer, stretch, moon, heart, flame or bolt>",
       "prog": "linear",
       "why": "<1-2 sentences: what this day is for>",
       "ex": [

@@ -32,6 +32,13 @@ if (MODE === 'invalid') { process.stdout.write('I am afraid I cannot do that.\n'
 const isRepair = /REPAIR REQUEST/i.test(prompt);
 if (MODE === 'invalid-then-valid' && !isRepair) { process.stdout.write('{"changes": "not an array"}\n'); process.exit(0); }
 
+// The admin card's "Test the Coach": a prompt with no payload attached, asking for one small
+// object back. A real provider answers that from the prompt alone, so the fixture does too —
+// otherwise the single button that proves the runtime works is the one thing the shipped
+// provider cannot do. Every genuine job embeds its payload in a fence (see buildPrompt), so
+// the absence of one is what distinguishes the two.
+if (!/```json/.test(prompt)) out({ coach_contract: 1, ok: true });
+
 // The payload the server built is embedded in the prompt between fences; pull it back out so
 // the answer references ids that actually exist.
 function payload() {
@@ -41,6 +48,22 @@ function payload() {
 }
 const P = payload();
 const kind = P.task || (/change-set/i.test(prompt) ? 'review' : 'create');
+
+// Well-formed JSON naming an exercise nobody has. This is the failure validate.js exists for,
+// and it is not the same as garbage: every check upstream of the validator is happy with it.
+// The fixture keeps saying it on the repair round too, because the interesting assertion is
+// that a model which cannot be told produces a failed job rather than a retry loop.
+if (MODE === 'unknown-exercise') {
+  out({
+    coach_contract: 1,
+    summary: 'One change.',
+    changes: [{
+      id: 'c1', type: 'add-exercise', target: { routineId: (P.plan?.routines || [])[0]?.id },
+      after: { id: 'not-a-real-exercise', sets: 3, reps: 10 },
+      why: 'An id that resolves to nothing must never reach a plan.'
+    }]
+  });
+}
 
 if (MODE === 'nochange' || (kind === 'review' && !(P.window?.workouts || []).length)) {
   out({ coach_contract: 1, nochange: true, reading: 'Not enough new training to read anything into yet — keep logging and ask again in a week.' });
@@ -54,7 +77,11 @@ if (kind === 'create') {
     opengym_plan: 1,
     name: 'Coach plan',
     summary: 'A three-day full-body plan built around the equipment you listed.',
-    basedOn: 'No training history yet — starting conservatively.',
+    // Echoes whether the previous bundle actually arrived, so a test can tell a refine that
+    // carried its predecessor from one that silently sent `previous: null`.
+    basedOn: P.refine?.previous
+      ? 'Refined from the plan you were shown.'
+      : 'No training history yet, so starting conservatively.',
     week: { 1: 'r1', 3: 'r2', 5: 'r1' },
     routines: [
       {
@@ -75,6 +102,20 @@ if (kind === 'create') {
       }
     ],
     customEx: []
+  });
+}
+
+// debrief: one session read back, with its own numbers echoed so a test can check they arrived
+if (kind === 'debrief') {
+  const s = P.session || {};
+  const done = (s.entries || []).reduce((n, en) => n + (en.sets || []).filter(x => x.done).length, 0);
+  out({
+    coach_contract: 1,
+    summary: `${s.name || 'The session'} on ${s.d || '?'}: ${done} sets done in ${s.minutes ?? '?'} minutes.`,
+    score: done ? 8 : 3,
+    highlights: done ? [`${done} working sets completed.`] : [],
+    watch: (P.previous || []).length ? [] : ['First time this routine was logged — nothing to compare against yet.'],
+    nextTime: ['Keep the same loads and add one rep where the last set had reps in reserve.']
   });
 }
 

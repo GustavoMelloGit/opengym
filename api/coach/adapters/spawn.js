@@ -14,8 +14,10 @@ import fs from 'node:fs';
 // Resolved once: the container creates a `coach` user, but a bare `node server.js` on a
 // developer's laptop has no such user and must still work.
 let coachIds = null;
+let resolved = false;
 export function unprivilegedIds() {
-  if (coachIds !== null) return coachIds;
+  if (resolved) return coachIds;
+  resolved = true;
   coachIds = null;
   try {
     const passwd = fs.readFileSync('/etc/passwd', 'utf8');
@@ -24,8 +26,52 @@ export function unprivilegedIds() {
       const [, , uid, gid] = line.split(':');
       coachIds = { uid: +uid, gid: +gid };
     }
-  } catch { /* not linux, or no passwd file — run as ourselves */ }
+  } catch { /* not linux, or no passwd file — see canDropPrivileges */ }
   return coachIds;
+}
+
+/**
+ * Whether a job may run at all, privilege-wise.
+ *
+ * The drop is the control that keeps a provider runtime out of ./data, and it used to switch
+ * itself off silently: `unprivilegedIds()` only returns ids when the server is root, so adding
+ * an ordinary `USER node` line to the Dockerfile — a hardening change, made for unrelated
+ * reasons — would have left the runtime inheriting the server's uid with nothing to say so.
+ * A control that disappears during someone else's refactor is one you find out about late.
+ *
+ * So on Linux it fails closed: no drop, no job. Elsewhere (a developer's macOS laptop, where
+ * there is no `coach` user and no container boundary either) it stays permissive, because the
+ * alternative is that the test suite and local development simply stop working.
+ *
+ * "Elsewhere" does not include CI, which is Linux, runs as an ordinary user and has no `coach`
+ * user — so the honest answer there is `false`, and every test that needs to reach the code
+ * behind the drop has to say so explicitly. That is what the seam below is for: the suite sets
+ * the verdict it wants to test against, including the refusal itself, instead of inheriting
+ * whatever the host it happens to run on would have said.
+ */
+let forced = null;
+/** Test-only. Pass a verdict to pin it, or null to go back to asking the host. */
+export function forcePrivilegeVerdict(v) { forced = v; }
+export function canDropPrivileges() {
+  if (forced) return forced;
+  if (process.platform !== 'linux') return { ok: true, dropped: false, why: 'not linux — development host' };
+  if (unprivilegedIds()) return { ok: true, dropped: true, why: null };
+  if (process.getuid && process.getuid() !== 0) {
+    return { ok: false, dropped: false, why: 'the server is not running as root, so Coach jobs cannot drop to the unprivileged user' };
+  }
+  return { ok: false, dropped: false, why: 'no `coach` user exists in this image' };
+}
+
+/**
+ * The gate every path that may start a provider runtime goes through — a job, the admin's test
+ * run, and the admin card's version check — so the three cannot drift apart. Returns the
+ * refusal, worded the same everywhere, or null when the adapter may run. A provider that spawns
+ * nothing has no process to drop and is never refused for lacking the drop.
+ */
+export function privilegeRefusal(adapter) {
+  if (adapter?.spawns === false) return null;
+  const priv = canDropPrivileges();
+  return priv.ok ? null : `Coach jobs are disabled: ${priv.why}`;
 }
 
 /**
