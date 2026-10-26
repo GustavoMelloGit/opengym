@@ -235,12 +235,12 @@ function ActiveWorkout() {
   }
 
   // Adds to this session only; the routine is untouched.
-  const addExercise = () => exercisePicker(ex => exConfigSheet(ex, null, cfg => update(s => {
+  const addExercise = () => exercisePicker((ex, closePicker) => exConfigSheet(ex, null, cfg => { closePicker(); update(s => {
     const full = { ...cfg, id: ex.id }
     const plan = nextPrescription(s, full, s.routines.find(r => r.id === s.active.routineId))
     s.active.entries.push({ id: ex.id, target: { ...cfg }, plan, sets: applyPrescription(buildSets(s, full), plan) })
     s.active.cur = s.active.entries.length - 1
-  }), null, S.routines.find(r => r.id === A.routineId)))
+  }) }, null, S.routines.find(r => r.id === A.routineId)))
 
   const hasNav = units.length > 1
   useEffect(() => {

@@ -461,7 +461,10 @@ function ExercisePicker({ onPick, close }) {
     {f.length > shown && <><div style={{ height: 8 }} /><Button onClick={() => setShown(s => s + 50)}>{t('Show more')}</Button></>}
   </>
 }
-export const exercisePicker = onPick => ui().openSheet(close => <ExercisePicker onPick={onPick} close={close} />)
+// onPick(ex, close): `close` shuts the picker. Picking opens the exercise's config on top and
+// the picker waits underneath, so backing out of the config lands on the list again; once the
+// config is saved the exercise is in and the list closes with it.
+export const exercisePicker = onPick => ui().openSheet(close => <ExercisePicker onPick={ex => onPick(ex, close)} close={close} />)
 
 /* ============================ exercise config ============================ */
 // Progression settings for one exercise (issue #17). Shown inside the config sheet because
