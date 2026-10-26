@@ -5,7 +5,8 @@ import { bestWeightFor } from '../lib/history.js'
 import { fmtNum } from '../lib/format.js'
 import { t, nameFor } from '../lib/i18n.js'
 import { Thumb } from '../components/Media.jsx'
-import { exerciseDetailSheet, addToRoutineSheet, customExSheet } from '../sheets.jsx'
+import { exerciseDetailSheet, addToRoutineSheet, customExSheet, exSearchFields } from '../sheets.jsx'
+import { fuzzySearch } from '../lib/search.js'
 import Icon from '../components/Icon.jsx'
 import { Button } from '../components/ui.jsx'
 
@@ -15,8 +16,7 @@ export default function Library() {
   const [bp, setBp] = useState('')
   const [eq, setEq] = useState('')
   const [shown, setShown] = useState(40)
-  const ql = q.toLowerCase().trim()
-  const base = allExercises(S).filter(e => (!bp || e.bp === bp) && (!ql || e.n.toLowerCase().includes(ql) || nameFor(e).toLowerCase().includes(ql) || e.tg.includes(ql) || e.eq.includes(ql) || (e.desc || '').toLowerCase().includes(ql)))
+  const base = fuzzySearch(allExercises(S).filter(e => !bp || e.bp === bp), q, exSearchFields)
   const eqOpts = equipmentOf(base)
   // Drop the equipment filter if the search narrowed it away, so you never hit a dead end.
   const eqOn = eqOpts.includes(eq) ? eq : ''

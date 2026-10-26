@@ -45,6 +45,21 @@ describe('planDiff', () => {
     expect(planDiff(R2, [entry('a', done(3)), entry('a', done(2)), entry('a', done(1))]).added).toEqual([{ id: 'a', sets: 1 }])
   })
 
+  it('reports a planned exercise removed from the session', () => {
+    const d = planDiff(R, [entry('a', done(3))], ['b'])
+    expect(d.removed).toEqual([{ id: 'b' }])
+    expect(followedPlan(d)).toBe(false)
+  })
+
+  it('does not count an exercise removed and then added back and done', () => {
+    expect(followedPlan(planDiff(R, [entry('a', done(3)), entry('b', done(4))], ['b']))).toBe(true)
+  })
+
+  it('removes one occurrence of an exercise the plan lists twice', () => {
+    const R2 = routine([{ id: 'a', sets: 3 }, { id: 'a', sets: 2 }])
+    expect(planDiff(R2, [entry('a', done(3))], ['a']).removed).toEqual([{ id: 'a' }])
+  })
+
   it('has nothing to compare for a freestyle session or a deleted routine', () => {
     expect(followedPlan(planDiff(null, [entry('a', done(3))]))).toBe(true)
   })
@@ -67,6 +82,16 @@ describe('adoptSession', () => {
     const ex = [{ id: 'a', sets: 3, reps: 10 }]
     const next = adoptSession(ex, [entry('a', done(3)), entry('c', done(2), { sets: 3, reps: 12, weight: 20, mode: 'reps' })])
     expect(next[1]).toEqual({ id: 'c', sets: 2, reps: 12, weight: 20, mode: 'reps' })
+  })
+
+  it('drops exercises removed from the session, keeping the skipped ones', () => {
+    const ex = [{ id: 'a', sets: 3 }, { id: 'b', sets: 4 }, { id: 'c', sets: 2 }]
+    expect(adoptSession(ex, [entry('a', done(3))], ['b'])).toEqual([{ id: 'a', sets: 3 }, { id: 'c', sets: 2 }])
+  })
+
+  it('unlinks the superset partner of a removed exercise', () => {
+    const ex = [{ id: 'a', sets: 3, sg: 'x' }, { id: 'b', sets: 3, sg: 'x' }]
+    expect(adoptSession(ex, [entry('a', done(3))], ['b'])).toEqual([{ id: 'a', sets: 3 }])
   })
 
   it('drops a superset link that lost its partner', () => {

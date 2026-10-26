@@ -704,6 +704,7 @@ export default {
   'This session didn’t match {0}. Want the plan to match what you did?': 'Esta sesión no siguió {0}. ¿Quieres que el plan refleje lo que hiciste?',
   '{0} → {1} sets': '{0} → {1} series',
   'new · {0} sets': 'nuevo · {0} series',
+  'removed': 'quitado',
   'Skipped exercises stay in the plan.': 'Los ejercicios que saltaste siguen en el plan.',
   'Update plan': 'Actualizar plan',
   'Keep plan as is': 'Mantener el plan',
