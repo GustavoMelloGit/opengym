@@ -21,6 +21,7 @@ import { estimate1RM, best1RM, is1RMRecord, REP_CAP } from './lib/onerm.js'
 import { nextPrescription, applyPrescription, policyFor, defaultIncrement, POLICIES_FOR, POLICY_NAME, POLICY_DESC } from './lib/progression.js'
 import { MOBILE, shareExport } from './lib/mobile.js'
 import { planDiff, followedPlan, adoptSession } from './lib/plan-diff.js'
+import { fuzzySearch } from './lib/search.js'
 
 const S = () => useStore.getState().S
 const update = (...a) => useStore.getState().update(...a)
@@ -409,6 +410,13 @@ function usageMap(st) {
   st.workouts.forEach(w => w.entries.forEach(e => { u[e.id] = (u[e.id] || 0) + 1 }))
   return u
 }
+// What the exercise search looks through (see lib/search.js): the name in English and in the
+// app language, then body part, target muscle and equipment in both.
+export const exSearchFields = e => ({
+  names: [e.n, nameFor(e)],
+  tags: [e.bp, e.tg, e.eq, t(e.bp), t(e.tg), t(e.eq)],
+  text: e.desc
+})
 function ExercisePicker({ onPick, close }) {
   const st = useStore(s => s.S)
   const usage = usageMap(st)
@@ -416,12 +424,11 @@ function ExercisePicker({ onPick, close }) {
   const [bp, setBp] = useState('')          // '' = all, '★' = chosen, else a body part
   const [eq, setEq] = useState('')          // '' = any equipment
   const [shown, setShown] = useState(50)
-  const ql = q.toLowerCase().trim()
   const all = allExercises(st)
-  let base = all.filter(e =>
-    (bp === '★' ? usage[e.id] : (!bp || e.bp === bp)) &&
-    (!ql || e.n.toLowerCase().includes(ql) || nameFor(e).toLowerCase().includes(ql) || e.tg.includes(ql) || e.eq.includes(ql) || (e.desc || '').toLowerCase().includes(ql)))
+  let base = all.filter(e => bp === '★' ? usage[e.id] : (!bp || e.bp === bp))
+  // Most used first among the chosen ones; a search orders by how well each one matches.
   if (bp === '★') base = [...base].sort((a, b) => (usage[b.id] - usage[a.id]) || nameFor(a).localeCompare(nameFor(b)))
+  base = fuzzySearch(base, q, exSearchFields)
   const eqOpts = equipmentOf(base)
   // Drop the equipment filter if the search narrowed it away, so you never hit a dead end.
   const eqOn = eqOpts.includes(eq) ? eq : ''
